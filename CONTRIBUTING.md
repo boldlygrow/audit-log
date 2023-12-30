@@ -34,7 +34,7 @@ mkdir -p laravel${SDK_LARAVEL_VERSION}-pkg-test/packages/provisionesta
 ln -s ~/Code/audit ~/Code/laravel${SDK_LARAVEL_VERSION}-pkg-test/packages/provisionesta/audit
 # Custom repository location configuration
 cd ~/Code/laravel${SDK_LARAVEL_VERSION}-pkg-test
-sed -i '.bak' -e 's/seeders\/"/&,\n            "Provisionesta\\\\Okta\\\\": "packages\/provisionesta\/audit\/src"/g' composer.json
+sed -i '.bak' -e 's/seeders\/"/&,\n            "Provisionesta\\\\Audit\\\\": "packages\/provisionesta\/audit\/src"/g' composer.json
 composer config repositories.audit '{"type": "path", "url": "packages/provisionesta/audit"}' --file composer.json
 composer require provisionesta/audit:dev-main
 php artisan vendor:publish --tag=audit
