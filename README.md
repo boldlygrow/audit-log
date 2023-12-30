@@ -38,7 +38,7 @@ Log::create(
 
 ### Example Output
 
-```json
+```plain
 [2023-12-01 08:01:23] local.DEBUG: ApiClient::post Success {"event_type":"okta.api.post.success.ok","method":"Provisionesta\\Okta\\ApiClient::post","event_ms":627,"metadata":{"okta_request_id":"REDACTED","rate_limit_remaining":"16","uri":"users","url":"https://dev-12345678.okta.com/api/v1/users?activate=true"}"}
 ```
 
@@ -102,7 +102,7 @@ If you are contributing to this package, see [CONTRIBUTING.md](CONTRIBUTING.md) 
 
 ### Create a Log Entry
 
-You can copy and paste this example anywhere in your code that you would create a log entry. Any arguments that are not relevant can be removed and will be cosnidered null.
+You can copy and paste this example anywhere in your code that you would create a log entry. Any arguments that are not relevant can be removed and will be considered null.
 
 ```php
 use Provisionesta\Audit\Log;
@@ -143,7 +143,7 @@ Log::create(
 <table>
 <thead>
 <tr>
-<th>(Type) Named Parameter</th>
+<th>Parameter Name</th>
 <th>Example Usage</th>
 <th>Description</th>
 </tr>
