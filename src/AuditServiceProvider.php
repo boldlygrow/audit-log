@@ -11,12 +11,12 @@ class AuditServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->bootRoutes();
-        // $this->publishConfigFile();
+        $this->publishConfigFile();
     }
 
     public function register()
     {
-        // $this->mergeConfig();
+        $this->mergeConfig();
         $this->registerServices();
     }
 
@@ -36,10 +36,10 @@ class AuditServiceProvider extends ServiceProvider
      * This allows users to override any module configuration values with their
      * own values in the application config file.
      */
-    // protected function mergeConfig(): void
-    // {
-    //     $this->mergeConfigFrom(__DIR__ . '/Config/audit.php', 'audit');
-    // }
+    protected function mergeConfig(): void
+    {
+        $this->mergeConfigFrom(__DIR__ . '/Config/audit.php', 'audit');
+    }
 
     /**
      * Publish config file to application
@@ -47,15 +47,15 @@ class AuditServiceProvider extends ServiceProvider
      * Once the `php artisan vendor::publish` command is run, you can use the
      * configuration file values `$value = config('audit.option');`
      */
-    // protected function publishConfigFile(): void
-    // {
-    //     if ($this->app->runningInConsole()) {
-    //         $this->publishes(
-    //             [__DIR__ . '/Config/audit.php' => config_path('audit.php')],
-    //             'audit'
-    //         );
-    //     }
-    // }
+    protected function publishConfigFile(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->publishes(
+                [__DIR__ . '/Config/audit.php' => config_path('audit.php')],
+                'audit'
+            );
+        }
+    }
 
     /**
      * Register package services in the container.

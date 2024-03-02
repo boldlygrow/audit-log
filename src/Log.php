@@ -50,7 +50,24 @@ class Log
      * @param ?int $count_records
      *      (Multiple records) Count of records processed.
      *
-     * @param ?Carbon $duration_ms
+     * @param ?string $dump_config (optional)
+     *      The array key in config/audit.php that contains the `date`, `keys`,
+     *      and `strings` schema configuration.
+     *
+     * @param $dump_date (optional)
+     *      The PHP datetime format string for timestamps returned in array.
+     *      (default: 'c')
+     *
+     * @param array $dump_keys (optional)
+     *      An filtered list of array of keys from the Log::create() method
+     *      that returned in the response array.
+     *
+     * @param array $dump_strings (optional)
+     *      An array of key value pairs of static strings that should be
+     *      included in the in the response array (instead of having to
+     *      add them yourself with collection transformation later).
+     *
+     * @param ?Carbon $duration_ms (optional)
      *      Carbon instance (timestamp) used for long running batch jobs to
      *      provide a point-in-time duration since job started.
      *
@@ -70,7 +87,6 @@ class Log
      *      Number of milliseconds divided by count of records. This is not
      *      auto-calculated to allow flexibility for custom Carbon timestamps
      *
-     * @param array $metadata
      * @param ?string $job_batch (optional)
      *      The human identifier string or system ID of the batch of jobs.
      *      Format is at your discretion.
@@ -93,17 +109,24 @@ class Log
      * @param ?string $job_transaction_id (optional)
      *      An alternative to job_id that can be used for additional indexable
      *      identifiers used by your application or business logic.
+     *
+     * @param bool $log (optional)
+     *      Whether to create a system log entry for this event. This is used
+     *      in conjunction `transaction` or only returning a parsed array.
+     *      (default: true)
+     *
+     * @param array $metadata (optional)
      *      An array of custom metadata that should be included in the log
      *
-     * @param ?string $occurred_at
+     * @param ?string $occurred_at (optional)
      *      A datetime that will be formatted with Carbon for when the event
      *      occurred at based on a created_at or updated_at API timestamp
      *
-     * @param ?string $parent_id
+     * @param ?string $parent_id (optional)
      *      (Many-to-Many Relationship Events) The database ID of the database
      *      model with a many-to-many relationship.
      *
-     * @param ?string $parent_type
+     * @param ?string $parent_type (optional)
      *      (Many-to-Many Relationship Events) The fully-qualified namespace of
      *      the database model with a many-to-many relationship.
      *      Ex. App\Models\Okta\Application
@@ -161,6 +184,10 @@ class Log
         ?string $attribute_value_new = null,
         ?int $count_records = null,
         ?Carbon $duration_ms = null,
+        ?string $dump_config = null,
+        string $dump_date = 'c',
+        array $dump_strings = [],
+        array $dump_keys = [],
         ?int $duration_ms_per_record = null,
         array $errors = [],
         ?Carbon $event_ms = null,
@@ -171,6 +198,7 @@ class Log
         ?string $job_pipeline_id = null,
         ?string $job_timestamp = null,
         ?string $job_transaction_id = null,
+        bool $log = true,
         array $metadata = [],
         ?string $occurred_at = null,
         ?string $parent_id = null,
@@ -186,7 +214,7 @@ class Log
         ?string $tenant_id = null,
         ?string $tenant_type = null,
         bool $transaction = false,
-    ): void {
+    ): array {
         self::validate(get_defined_vars());
 
         $log_context_keys = [
@@ -232,9 +260,11 @@ class Log
         ];
 
         $log_context = collect(get_defined_vars())
-            ->reject(null)
             ->only(collect($log_context_keys)->flatten(1))
             ->transform(function ($item, $key) use ($log_context_keys) {
+                if ($item === null) {
+                    return null;
+                }
                 if (in_array($key, $log_context_keys['string'])) {
                     return (string) $item;
                 }
@@ -252,15 +282,17 @@ class Log
                 }
             })->toArray();
 
-        $message_array = explode('\\', $method);
-        LaravelLog::log(
-            level: $level,
-            message: end($message_array) . ' ' . $message,
-            context: array_merge(
-                ['event_type' => $event_type, 'method' => $method],
-                $log_context
-            )
-        );
+        if ($log) {
+            $message_array = explode('\\', $method);
+            LaravelLog::log(
+                level: $level,
+                message: end($message_array) . ' ' . $message,
+                context: array_merge(
+                    ['event_type' => $event_type, 'method' => $method],
+                    collect($log_context)->reject(null)->toArray()
+                )
+            );
+        }
 
         // if ($transaction) {
         //     CreateTransaction::make()->handle(
@@ -290,6 +322,20 @@ class Log
         //         tenant_type: $tenant_type
         //     );
         // }
+
+        return self::formatDump(
+            dump_config: $dump_config,
+            dump_date: $dump_date,
+            dump_strings: $dump_strings,
+            dump_keys: $dump_keys,
+            log_metadata: [
+                'event_type' => $event_type,
+                'level' => $level,
+                'message' => $message,
+                'method' => $method
+            ],
+            log_context: $log_context
+        );
     }
 
     /**
@@ -312,6 +358,7 @@ class Log
             'attribute_value_old' => 'nullable|string',
             'attribute_value_new' => 'nullable|string',
             'errors' => 'array', // FIXME: Add additional sanitization
+            'log' => 'boolean',
             'metadata' => 'array', // FIXME: Add additional sanitization
             'occurred_at' => 'nullable|date',
             'parent_id' => 'nullable|uuid|required_with:parent_type',
@@ -333,6 +380,10 @@ class Log
             'job_pipeline_id' => 'nullable|string',
             'job_timestamp' => 'nullable|string',
             'job_transaction_id' => 'nullable|string',
+            'dump_config' => 'nullable|string',
+            'dump_date' => 'nullable|string',
+            'dump_keys' => 'array',
+            'dump_strings' => 'array'
         ]);
 
         if ($validator->fails()) {
@@ -348,5 +399,65 @@ class Log
 
             throw new ValidationException($validator->errors()->first());
         }
+    }
+
+    /**
+     * Format the response array that can be dumped into a variable
+     *
+     * @param ?string $dump_config
+     *      The array key in config/audit.php that contains the `date`, `keys`,
+     *      and `strings` schema configuration.
+     *
+     * @param $dump_date
+     *      The PHP datetime format string for timestamps returned in array.
+     *
+     * @param array $dump_keys
+     *      An filtered list of array of keys from the Log::create() method
+     *      that returned in the response array.
+     *
+     * @param array $dump_strings
+     *      An array of key value pairs of static strings that should be
+     *      included in the in the response array (instead of having to
+     *      add them yourself with collection transformation later).
+     *
+     * @param array $log_metadata
+     *      An key/value array with `event_type`, `level`, `message`, `method`
+     *
+     * @param array $log_context
+     *      The array of log context that was used for log and transaction
+     */
+    private static function formatDump(
+        ?string $dump_config = null,
+        string $dump_date = 'c',
+        array $dump_strings = [],
+        array $dump_keys = [],
+        array $log_metadata = [],
+        array $log_context = [],
+    ) {
+        if (!$dump_config) {
+            $dump = [
+                'date' => $dump_date,
+                'keys' => $dump_keys,
+                'strings' => $dump_strings
+            ];
+        } else {
+            $dump = config('audit.dump.' . $dump_config);
+        }
+
+        $filterable_data = collect()
+            ->merge($log_metadata)
+            ->merge($log_context);
+
+        if (!empty($dump_keys)) {
+            $filtered_data = $filterable_data->only($dump['keys'])->toArray();
+        } else {
+            $filtered_data = $filterable_data->toArray();
+        }
+
+        return collect()
+            ->merge(['datetime' => Carbon::parse($log_context['occurred_at'] ?? now())->format($dump['date'])])
+            ->merge($filtered_data)
+            ->merge($dump['strings'])
+            ->toArray();
     }
 }
