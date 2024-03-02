@@ -71,6 +71,28 @@ class Log
      *      auto-calculated to allow flexibility for custom Carbon timestamps
      *
      * @param array $metadata
+     * @param ?string $job_batch (optional)
+     *      The human identifier string or system ID of the batch of jobs.
+     *      Format is at your discretion.
+     *
+     * @param ?string $job_id (optional)
+     *      The human identifier string or system ID of the specific job that
+     *      triggered this log entry. Format is at your discretion.
+     *
+     * @param ?string $job_platform (optional)
+     *      The human identifier string of the platform that the background
+     *      jobs are running in. Format is at your discretion.
+     *
+     * @param ?string $job_pipeline_id (optional)
+     *      The system ID of the CI/CD pipeline (if applicable).
+     *
+     * @param ?string $job_timestamp (optional)
+     *      The timestamp that the job or pipeline was started. This is useful
+     *      for identifying which scheduled job timestamp triggered this event.
+     *
+     * @param ?string $job_transaction_id (optional)
+     *      An alternative to job_id that can be used for additional indexable
+     *      identifiers used by your application or business logic.
      *      An array of custom metadata that should be included in the log
      *
      * @param ?string $occurred_at
@@ -143,6 +165,12 @@ class Log
         array $errors = [],
         ?Carbon $event_ms = null,
         ?int $event_ms_per_record = null,
+        ?string $job_batch = null,
+        ?string $job_id = null,
+        ?string $job_platform = null,
+        ?string $job_pipeline_id = null,
+        ?string $job_timestamp = null,
+        ?string $job_transaction_id = null,
         array $metadata = [],
         ?string $occurred_at = null,
         ?string $parent_id = null,
@@ -178,6 +206,12 @@ class Log
                 'attribute_key',
                 'attribute_value_old',
                 'attribute_value_new',
+                'job_batch',
+                'job_id',
+                'job_platform',
+                'job_pipeline_id',
+                'job_timestamp',
+                'job_transaction_id'
             ],
             'int' => [
                 'count_records',
@@ -236,6 +270,12 @@ class Log
         //         count_records: $count_records,
         //         errors: $errors,
         //         event_type: $event_type,
+        //         job_batch: $job_batch,
+        //         job_id: $job_id,
+        //         job_platform: $job_platform,
+        //         job_pipeline_id: $job_pipeline_id,
+        //         job_timestamp: $job_timestamp,
+        //         job_transaction_id: $job_transaction_id,
         //         level: $level,
         //         message: $message,
         //         metadata: $metadata,
@@ -286,7 +326,13 @@ class Log
             'record_reference_value' => 'nullable|string|max:255',
             'tenant_id' => 'nullable|uuid|required_with:tenant_type',
             'tenant_type' => 'nullable|string|required_with:tenant_id',
-            'transaction' => 'boolean'
+            'transaction' => 'boolean',
+            'job_batch' => 'nullable|string',
+            'job_id' => 'nullable|string',
+            'job_platform' => 'nullable|string',
+            'job_pipeline_id' => 'nullable|string',
+            'job_timestamp' => 'nullable|string',
+            'job_transaction_id' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
