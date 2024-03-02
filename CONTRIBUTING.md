@@ -42,6 +42,19 @@ php artisan vendor:publish --tag=audit
 unset SDK_LARAVEL_VERSION
 ```
 
+You can link this package into an existing Laravel application using the following commands.
+
+```bash
+cd ~/Code/my-project-name
+
+mkdir -p packages/provisionesta
+ln -s ~/Code/audit packages/provisionesta/audit
+sed -i '.bak' -e 's/seeders\/"/&,\n            "Provisionesta\\\\Audit\\\\": "packages\/provisionesta\/audit\/src"/g' composer.json
+composer config repositories.audit '{"type": "path", "url": "packages/provisionesta/audit"}' --file composer.json
+composer require provisionesta/audit:dev-main
+php artisan vendor:publish --tag=audit
+```
+
 ## Custom Application Configuration
 
 ### Configuring Your Application with Working Copies of Packages
