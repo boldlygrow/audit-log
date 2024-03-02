@@ -38,16 +38,16 @@ class Log
      *      The method where this audit log is created in or is on behalf of.
      *      Ex. __METHOD__
      *
-     * @param ?string $attribute_key
+     * @param ?string $attribute_key (optional)
      *      (State Changes) The database column name that has changed.
      *
-     * @param ?string $attribute_value_old
+     * @param ?string $attribute_value_old (optional)
      *      (State Changes) The value in the database before the update.
      *
-     * @param ?string $attribute_value_new
+     * @param ?string $attribute_value_new (optional)
      *      (State Changes) The API value that is now updated in the database.
      *
-     * @param ?int $count_records
+     * @param ?int $count_records (optional)
      *      (Multiple records) Count of records processed.
      *
      * @param ?string $dump_config (optional)
@@ -71,19 +71,19 @@ class Log
      *      Carbon instance (timestamp) used for long running batch jobs to
      *      provide a point-in-time duration since job started.
      *
-     * @param ?int $duration_ms_per_record
+     * @param ?int $duration_ms_per_record (optional)
      *      Number of milliseconds divided by count of records. This is not
      *      auto-calculated to allow flexibility for custom Carbon timestamps
      *
-     * @param array $errors
+     * @param array $errors (optional)
      *      Flat array of error message(s) that will be encoded as JSON
      *
-     * @param ?Carbon $event_ms
+     * @param ?Carbon $event_ms (optional)
      *      Carbon instance (timestamp) that was initialized at the start of
      *      the action and provides a point-in-time duration for this specific
      *      action within a longer running job.
      *
-     * @param ?int $event_ms_per_record
+     * @param ?int $event_ms_per_record (optional)
      *      Number of milliseconds divided by count of records. This is not
      *      auto-calculated to allow flexibility for custom Carbon timestamps
      *
@@ -131,48 +131,49 @@ class Log
      *      the database model with a many-to-many relationship.
      *      Ex. App\Models\Okta\Application
      *
-     * @param ?string $parent_provider_id
+     * @param ?string $parent_provider_id (optional)
      *      (Many-to-Many Relationship Events) The API ID of the database model
      *      with a many-to-many relationship that is usually stored in the
      *      database in the `provider_id` column.
      *
-     * @param ?string $parent_reference_key
+     * @param ?string $parent_reference_key (optional)
      *      (Many-to-Many Relationship Events) The database column name for
      *      value that is human readable in logs
      *      Ex. name
      *
-     * @param ?string $parent_reference_value
+     * @param ?string $parent_reference_value (optional)
      *      (Many-to-Many Relationship Events) The value of the human readable
      *      database column
      *
-     * @param ?string $record_id
+     * @param ?string $record_id (optional)
      *      The database ID of the affected database model
      *
-     * @param ?string $record_type
+     * @param ?string $record_type (optional)
      *      The fully-qualified namespace of the database model
      *      Ex. App\Models\Okta\User
      *
-     * @param ?string $record_provider_id
+     * @param ?string $record_provider_id (optional)
      *      The API ID of the affected database model that is usually stored in
      *      the database in the `provider_id` column.
      *
-     * @param ?string $record_reference_key
+     * @param ?string $record_reference_key (optional)
      *      The database column name for value that is human readable in logs
      *      Ex. name
      *
-     * @param ?string $record_reference_value
+     * @param ?string $record_reference_value (optional)
      *      The value of the human readable database column
      *
-     * @param ?string $tenant_id
+     * @param ?string $tenant_id (optional)
      *      The database ID of the top-level organization/tenant for the provider
      *
-     * @param ?string $tenant_type
+     * @param ?string $tenant_type (optional)
      *      The fully-qualified namespace of the database model of the top-level
      *      entity (organization, tenant, etc) for the provider.
      *      Ex. App\Models\Okta\Organization
      *
-     * @param bool $transaction
+     * @param bool $transaction (optional)
      *      Whether to create a Transaction database entry for this event
+     *      (default: false)
      */
     public static function create(
         string $event_type,
