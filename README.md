@@ -217,6 +217,35 @@ Log::create(
 <td>Number of milliseconds divided by count of records. This is not auto-calculated to allow flexibility for custom Carbon timestamps</td>
 </tr>
 <tr>
+<td>job_batch<br /><code>string</code></td>
+<td></td>
+<td>(<a href="#background-job-log-entry">Background Job Logs</a>) The human identifier string or system ID of the batch of jobs. Format is at your discretion.</td>
+</tr>
+<tr>
+<td>job_id<br /><code>string</code></td>
+<td></td>
+<td>(<a href="#background-job-log-entry">Background Job Logs</a>) The human identifier string or system ID of the specific job that triggered this log entry. Format is at your discretion.</td>
+</tr>
+<tr>
+<td>job_platform<br /><code>string</code></td>
+<td><code>github</code><br><code>gitlab</code><br><code>lambda</code><br><code>redis</code><br><code>{your string}</code></td>
+<td>(<a href="#background-job-log-entry">Background Job Logs</a>) The human identifier string of the platform that the background jobs are running in. Format is at your discretion.</td>
+</tr>
+<tr>
+<td>job_pipeline_id<br /><code>string</code></td>
+<td></td>
+<td>(<a href="#background-job-log-entry">Background Job Logs</a>) The system ID of the CI/CD pipeline (if applicable).</td>
+</tr>
+<tr>
+<td>job_timestamp<br /><code>string</code></td>
+<td><code>now()->getTimestamp()</code></td>
+<td>(<a href="#background-job-log-entry">Background Job Logs</a>) The timestamp that the job or pipeline was started. This is useful for identifying which scheduled job timestamp triggered this event.</td>
+</tr>
+<tr>
+<td>job_transaction_id<br /><code>string</code></td>
+<td><code>now()->getTimestamp()</code></td>
+<td>(<a href="#background-job-log-entry">Background Job Logs</a>) An alternative to <code>job_id</code> that can be used for additional indexable identifiers used by your application or business logic.</td>
+</tr>
 <td>metadata<br /><code>array</code></td>
 <td></td>
 <td>An array of custom metadata that should be included in the log</td>
@@ -293,3 +322,25 @@ Log::create(
 </tr>
 </tbody>
 </table>
+
+## Advanced Usage
+
+### Background Job Log Entry
+
+You can add the `job_*` parameters if you are running background jobs and want to add metadata to your logs and transactions. All of these values (except `job_timestamp`) are freeform strings that you can standardize however you'd like.
+
+```php
+use Provisionesta\Audit\Log;
+
+Log::create(
+    // ...
+    job_batch: '{string}',
+    job_id: '{string}',
+    job_platform: '{string}',
+    job_pipeline_id: '{string}',
+    job_timestamp: now()->getTimestamp(),
+    job_transaction_id: '{string}',
+    // ...
+);
+```
+
