@@ -38,6 +38,36 @@ class Log
      *      The method where this audit log is created in or is on behalf of.
      *      Ex. __METHOD__
      *
+     * @param ?string $actor_email (optional)
+     *      The email address of the actor
+     *      Ex. auth()->user()->email
+     *
+     * @param ?string $actor_id (optional)
+     *      The database ID of the actor
+     *      Ex. auth()->user()->id
+     *
+     * @param ?string $actor_name (optional)
+     *      The first and last name of the actor
+     *      Ex. auth()->user()->name
+     *
+     * @param ?string $actor_provider_id (optional)
+     *      The 3rd party vendor API ID of the actor (ex. Okta User ID)
+     *      Ex. auth()->user()->provider_id
+     *
+     * @param ?string $actor_session_id (optional)
+     *      The session ID of the actor
+     *      Ex. session()->getId()
+     *
+     * @param ?string $actor_type (optional)
+     *      (Many-to-Many Relationship Events) The fully-qualified namespace of
+     *      the database model with a many-to-many relationship.
+     *      Ex. App\\Models\\Auth\\User
+     *      Ex. config('auth.providers.users.model')
+     *
+     * @param ?string $actor_username (optional)
+     *      The username of the actor
+     *      Ex. auth()->user()->username
+     *
      * @param ?string $attribute_key (optional)
      *      (State Changes) The database column name that has changed.
      *
@@ -180,6 +210,13 @@ class Log
         string $level,
         string $message,
         string $method,
+        ?string $actor_email = null,
+        ?string $actor_id = null,
+        ?string $actor_name = null,
+        ?string $actor_provider_id = null,
+        ?string $actor_session_id = null,
+        ?string $actor_type = null,
+        ?string $actor_username = null,
         ?string $attribute_key = null,
         ?string $attribute_value_old = null,
         ?string $attribute_value_new = null,
@@ -220,6 +257,13 @@ class Log
 
         $log_context_keys = [
             'string' => [
+                'actor_email',
+                'actor_id',
+                'actor_name',
+                'actor_provider_id',
+                'actor_session_id',
+                'actor_type',
+                'actor_username',
                 'tenant_id',
                 'tenant_type',
                 'parent_id',
@@ -297,6 +341,13 @@ class Log
 
         // if ($transaction) {
         //     CreateTransaction::make()->handle(
+        //         actor_email: $actor_email,
+        //         actor_id: $actor_id,
+        //         actor_name: $actor_name,
+        //         actor_provider_id: $actor_provider_id,
+        //         actor_session_id: $actor_session_id,
+        //         actor_type: $actor_type,
+        //         actor_username: $actor_username,
         //         attribute_key: $attribute_key,
         //         attribute_value_old: $attribute_value_old,
         //         attribute_value_new: $attribute_value_new,
@@ -351,6 +402,13 @@ class Log
     private static function validate($arguments_array)
     {
         $validator = Validator::make($arguments_array, [
+            'actor_email' => 'nullable|string',
+            'actor_id' => 'nullable|string',
+            'actor_name' => 'nullable|string',
+            'actor_provider_id' => 'nullable|string',
+            'actor_session_id' => 'nullable|string',
+            'actor_type' => 'nullable|string',
+            'actor_username' => 'nullable|string',
             'event_type' => 'required|string|max:255',
             'level' => 'required|string|in:debug,info,notice,warning,error,critical,alert,emergency',
             'message' => 'required|string|max:1000',

@@ -97,6 +97,13 @@ You can copy and paste this example anywhere in your code that you would create 
 use Provisionesta\Audit\Log;
 
 Log::create(
+    actor_email: auth()->user()->email,
+    actor_id: auth()->user()->id,
+    actor_name: auth()->user()->name,
+    actor_provider_id: auth()->user()->provider_id,
+    actor_session_id: session()->getId(),
+    actor_type: config('auth.providers.users.model'),
+    actor_username: auth()->user()->username,
     attribute_key: 'xxx',
     attribute_value_old: 'xxx',
     attribute_value_new: 'xxx',
@@ -117,15 +124,18 @@ Log::create(
     occurred_at: $entity->created_at,
     parent_id: $parent->id,
     parent_type: 'App\\Models\\{Provider}\\Application',
+    // parent_type: ProviderApplication::class,
     parent_reference_key: 'name',
     parent_reference_value: $entity->organization->name,
     record_id: $entity->id,
     record_type: 'App\\Models\\{Provider}\\{Entity}',
+    // record_type: ProviderEntity::class,
     record_provider_id: $entity->provider_id,
     record_reference_key: 'name',
     record_reference_value: $entity->name,
     tenant_id: $entity->provider_organization_id,
     tenant_type: 'App\\Models\\{Provider}\\Organization',
+    // tenant_type: ProviderOrganization::class,
     transaction: false
 );
 ```
@@ -182,6 +192,41 @@ Log::create(
 <td><strong>method</strong> (Required)<br /><code>string</code></td>
 <td><code>__METHOD__</code></td>
 <td>The method where this audit log is created in or is on behalf of.</td>
+</tr>
+<tr>
+<td>actor_email<br><code>string</code></td>
+<td><code>auth()->user()->email</code></td>
+<td>The email address of the actor</td>
+</tr>
+<tr>
+<td>actor_id<br><code>string</code></td>
+<td><code>auth()->user()->id</code></td>
+<td>The database ID of the actor</td>
+</tr>
+<tr>
+<td>actor_name<br><code>string</code></td>
+<td><code>auth()->user()->name</code></td>
+<td>The first and last name of the actor</td>
+</tr>
+<tr>
+<td>actor_provider_id<br><code>string</code></td>
+<td><code>auth()->user()->provider_id</code></td>
+<td>The 3rd party vendor API ID of the actor (ex. Okta User ID)</td>
+</tr>
+<tr>
+<td>actor_session_id<br><code>string</code></td>
+<td><code>session()->getId()</code></td>
+<td>The session ID of the actor</td>
+</tr>
+<tr>
+<td>actor_type<br><code>string</code></td>
+<td><code>config('auth.providers.users.model')</code></td>
+<td>(Many-to-Many Relationship Events) The fully-qualified namespace of the database model with a many-to-many relationship.</td>
+</tr>
+<tr>
+<td>actor_username<br><code>string</code></td>
+<td><code>auth()->user()->username</code></td>
+<td>The username of the actor</td>
 </tr>
 <tr>
 <td>attribute_key<br /><code>string</code></td>
@@ -461,6 +506,13 @@ dd($result);
 //     "level" => "info",
 //     "message" => "Success",
 //     "method" => "Provisionesta\Okta\ApiClient::get",
+//     "actor_email" => null,
+//     "actor_id" => null,
+//     "actor_name" => null,
+//     "actor_provider_id" => null,
+//     "actor_session_id" => null,
+//     "actor_type" => null,
+//     "actor_username" => null,
 //     "attribute_key" => null,
 //     "attribute_value_old" => null,
 //     "attribute_value_new" => null,
