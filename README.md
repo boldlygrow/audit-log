@@ -54,7 +54,7 @@ See the [changelog](https://gitlab.com/provisionesta/audit/-/blob/main/changelog
 ### Add Composer Package
 
 ```plain
-composer require provisionesta/audit:^1.1
+composer require provisionesta/audit:^1.2
 ```
 
 If you are contributing to this package, see [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on configuring a local composer package with symlinks.
