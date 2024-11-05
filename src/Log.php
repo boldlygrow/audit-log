@@ -9,6 +9,7 @@
 namespace Provisionesta\Audit;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log as LaravelLog;
 use Illuminate\Support\Facades\Validator;
 use Provisionesta\Audit\Exceptions\ValidationException;
@@ -45,6 +46,10 @@ class Log
      * @param ?string $actor_id (optional)
      *      The database ID of the actor
      *      Ex. auth()->user()->id
+     *
+     * @param ?string $actor_ip_addr (optional)
+     *      The IP address of the actor
+     *      Ex. request()->ip()
      *
      * @param ?string $actor_name (optional)
      *      The first and last name of the actor
@@ -212,6 +217,7 @@ class Log
         string $method,
         ?string $actor_email = null,
         ?string $actor_id = null,
+        ?string $actor_ip_addr = null,
         ?string $actor_name = null,
         ?string $actor_provider_id = null,
         ?string $actor_session_id = null,
@@ -259,6 +265,7 @@ class Log
             'string' => [
                 'actor_email',
                 'actor_id',
+                'actor_ip_addr',
                 'actor_name',
                 'actor_provider_id',
                 'actor_session_id',
@@ -304,9 +311,37 @@ class Log
             ]
         ];
 
+        if (Auth::check()) {
+            $user = Auth::user();
+            $actor = [
+                'actor_email' => $user?->email, // @phpstan-ignore property.notFound
+                'actor_id' => $user?->id,
+                'actor_ip_addr' => request()->ip(),
+                'actor_name' => $user?->name ?? $user?->full_name, // @phpstan-ignore property.notFound
+                'actor_provider_id' => $user?->provider_id, // @phpstan-ignore property.notFound
+                'actor_session_id' => session()->getId(),
+                'actor_type' => $user::class,
+                'actor_username' => $user?->username // @phpstan-ignore property.notFound
+            ];
+        } else {
+            $actor = [
+                'actor_email' => null,
+                'actor_id' => null,
+                'actor_ip_addr' => request()->ip(),
+                'actor_name' => null,
+                'actor_provider_id' => null,
+                'actor_session_id' => session()->getId(),
+                'actor_type' => null,
+                'actor_username' => null,
+            ];
+        }
+
         $log_context = collect(get_defined_vars())
             ->only(collect($log_context_keys)->flatten(1))
-            ->transform(function ($item, $key) use ($log_context_keys) {
+            ->transform(function ($item, $key) use ($actor, $log_context_keys) {
+                if ($item === null && str_starts_with($key, 'actor_')) {
+                    return $actor[$key];
+                }
                 if ($item === null) {
                     return null;
                 }
@@ -334,7 +369,12 @@ class Log
                 message: end($message_array) . ' ' . $message,
                 context: array_merge(
                     ['event_type' => $event_type, 'method' => $method],
-                    collect($log_context)->reject(null)->toArray()
+                    collect($log_context)->reject(null)->toArray(),
+                    [
+                        'memory_current' => (int) (memory_get_usage() / 1024 / 1024) . 'MB',
+                        'memory_peak' => (int) (memory_get_peak_usage() / 1024 / 1024) . 'MB',
+                        'server_hostname' => $_SERVER['SERVER_NAME']
+                    ]
                 )
             );
         }

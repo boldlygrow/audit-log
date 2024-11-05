@@ -125,6 +125,7 @@ Log::create(
     parent_id: $parent->id,
     parent_type: 'App\\Models\\{Provider}\\Application',
     // parent_type: ProviderApplication::class,
+    parent_provider_id: $parent->provider_id,
     parent_reference_key: 'name',
     parent_reference_value: $entity->organization->name,
     record_id: $entity->id,
