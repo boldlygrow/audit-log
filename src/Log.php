@@ -372,8 +372,7 @@ class Log
                     collect($log_context)->reject(null)->toArray(),
                     [
                         'memory_current' => (int) (memory_get_usage() / 1024 / 1024) . 'MB',
-                        'memory_peak' => (int) (memory_get_peak_usage() / 1024 / 1024) . 'MB',
-                        'server_hostname' => $_SERVER['SERVER_NAME']
+                        'memory_peak' => (int) (memory_get_peak_usage() / 1024 / 1024) . 'MB'
                     ]
                 )
             );
