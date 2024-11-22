@@ -311,26 +311,39 @@ class Log
             ]
         ];
 
-        if (Auth::check()) {
-            $user = Auth::user();
-            $actor = [
-                'actor_email' => $user?->email, // @phpstan-ignore property.notFound
-                'actor_id' => $user?->id,
-                'actor_ip_addr' => request()->ip(),
-                'actor_name' => $user?->name ?? $user?->full_name, // @phpstan-ignore property.notFound
-                'actor_provider_id' => $user?->provider_id, // @phpstan-ignore property.notFound
-                'actor_session_id' => session()->getId(),
-                'actor_type' => $user::class,
-                'actor_username' => $user?->username // @phpstan-ignore property.notFound
-            ];
+        if (config('audit.actor.enabled')) {
+            if (Auth::check()) {
+                $user = Auth::user();
+                $actor = [
+                    'actor_email' => $user?->email, // @phpstan-ignore property.notFound
+                    'actor_id' => $user?->id,
+                    'actor_ip_addr' => request()->ip(),
+                    'actor_name' => $user?->name ?? $user?->full_name, // @phpstan-ignore property.notFound
+                    'actor_provider_id' => $user?->provider_id, // @phpstan-ignore property.notFound
+                    'actor_session_id' => session()->getId(),
+                    'actor_type' => $user::class,
+                    'actor_username' => $user?->username // @phpstan-ignore property.notFound
+                ];
+            } else {
+                $actor = [
+                    'actor_email' => null,
+                    'actor_id' => null,
+                    'actor_ip_addr' => request()->ip(),
+                    'actor_name' => null,
+                    'actor_provider_id' => null,
+                    'actor_session_id' => session()->getId(),
+                    'actor_type' => null,
+                    'actor_username' => null,
+                ];
+            }
         } else {
             $actor = [
                 'actor_email' => null,
                 'actor_id' => null,
-                'actor_ip_addr' => request()->ip(),
+                'actor_ip_addr' => null,
                 'actor_name' => null,
                 'actor_provider_id' => null,
-                'actor_session_id' => session()->getId(),
+                'actor_session_id' => null,
                 'actor_type' => null,
                 'actor_username' => null,
             ];

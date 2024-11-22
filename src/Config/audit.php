@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'actor' => [
+        'enabled' => env('AUDIT_ACTOR_ENABLED', true)
+    ],
     'dump' => [
         'default' => [
             'date' => 'c',

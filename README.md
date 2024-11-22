@@ -409,6 +409,59 @@ Log::create(
 
 ## Advanced Usage
 
+### Actor Metadata
+
+The following fields related to the actor (authenticated user) are captured with each log entry.
+
+This uses `Auth::user()` that uses the model configured in the `providers` array in `config/auth.php`. The Laravel default is `App\Models\User::class`, however your application may use a different model.
+
+| Attribute           | Authenticated (`Auth::check()`)                 | Unauthenticated      |
+|---------------------|-------------------------------------------------|----------------------|
+| `actor_email`       | `Auth::user()->email`                           | null                 |
+| `actor_id`          | `Auth::user()->id`                              | null                 |
+| `actor_ip_addr`     | `request()->ip()`                               | `request()->ip()`    |
+| `actor_name`        | `Auth::user()->name ?? Auth::user()->full_name` | null                 |
+| `actor_provider_id` | `Auth::user()->provider_id`                     | null                 |
+| `actor_session_id`  | `session()->getId()`                            | `session()->getId()` |
+| `actor_type`        | `config('auth.providers.users.model')`          | null                 |
+| `actor_username`    | `Auth::user()->username`                        | null                 |
+
+For developer experience, the table below above the defaults that are populated for the actor fields, however you can override them by specifying the key value pair in `Log::create()`.
+
+```php
+use Provisionesta\Audit\Log;
+
+Log::create(
+    // ...
+    actor_email: '{string}',
+    actor_id: '{string}',
+    actor_ip_addr: '{string}',
+    actor_name: '{string}',
+    actor_provider_id: '{string}',
+    actor_session_id: '{string}',
+    actor_type: '{string}',
+    actor_username: '{string}',
+    // ...
+);
+```
+
+### Disabling Actor Metadata
+
+Actor metadata is enabled by default. You can disable actor metdata if you do not want to capture actor metadata automatically or your application does not support request and session data (ex. Laravel Zero CLI app).
+
+You can use an environment variables or your `.env` file to disable it.
+
+`AUDIT_ACTOR_ENABLED=false`
+
+If your application cannot support actor metadata, you can permanently disable it in `config/audit.php`.
+
+```diff
+    'actor' => [
+-        'enabled' => env('AUDIT_ACTOR_ENABLED', true)
++        'enabled' => false
+    ],
+```
+
 ### Background Job Log Entry
 
 You can add the `job_*` parameters if you are running background jobs and want to add metadata to your logs and transactions. All of these values (except `job_timestamp`) are freeform strings that you can standardize however you'd like.
