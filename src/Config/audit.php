@@ -2,6 +2,7 @@
 
 return [
     'actor' => [
+        // @phpstan-ignore larastan.noEnvCallsOutsideOfConfig
         'enabled' => env('AUDIT_ACTOR_ENABLED', true)
     ],
     'dump' => [
