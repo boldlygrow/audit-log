@@ -318,7 +318,8 @@ class Log
                     'actor_email' => $user?->email, // @phpstan-ignore property.notFound
                     'actor_id' => $user?->id,
                     'actor_ip_addr' => request()->ip(),
-                    'actor_name' => $user?->name ?? $user?->full_name, // @phpstan-ignore property.notFound
+                    // @phpstan-ignore property.notFound, nullsafe.neverNull
+                    'actor_name' => $user?->name ?? $user?->full_name,
                     'actor_provider_id' => $user?->provider_id, // @phpstan-ignore property.notFound
                     'actor_session_id' => session()->getId(),
                     'actor_type' => $user::class,

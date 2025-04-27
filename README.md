@@ -42,10 +42,10 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) to learn more about how to contrib
 
 ### Requirements
 
-| Requirement | Version                          |
-|-------------|----------------------------------|
-| PHP         | `^8.0`                           |
-| Laravel     | `^8.0`, `^9.0`, `^10.0`, `^11.0` |
+| Requirement | Version                                   |
+|-------------|-------------------------------------------|
+| PHP         | `^8.0`                                    |
+| Laravel     | `^8.0`, `^9.0`, `^10.0`, `^11.0`, `^12.0` |
 
 ### Upgrade Guide
 
@@ -54,7 +54,7 @@ See the [changelog](https://gitlab.com/provisionesta/audit/-/blob/main/changelog
 ### Add Composer Package
 
 ```plain
-composer require provisionesta/audit:^1.2
+composer require provisionesta/audit:^1.3
 ```
 
 If you are contributing to this package, see [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on configuring a local composer package with symlinks.

@@ -12,5 +12,3 @@ parameters:
     ignoreErrors:
     excludePaths:
         - ./*/*/FileToBeExcluded.php
-
-    checkMissingIterableValueType: false
