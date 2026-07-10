@@ -433,22 +433,22 @@ AuditLog::create(
 <tr>
 <td>related_id<br /><code>string</code></td>
 <td><code>{uuid}</code></td>
-<td>The database ID of a related human or service account.</td>
+<td>The database ID of a related model that should be referenced in logs.</td>
 </tr>
 <tr>
 <td>related_model<br /><code>string</code></td>
 <td><code>ProviderUser::class</code></td>
-<td>The model class name of the related account. Auto-calculates <code>related_type</code>.</td>
+<td>The model class name of a related model that should be referenced in logs. Auto-calculates <code>related_type</code>.</td>
 </tr>
 <tr>
 <td>subject_id<br /><code>string</code></td>
 <td><code>{uuid}</code></td>
-<td>The database ID of the impacted human or service account subject.</td>
+<td>The database ID of the impacted human user, service account, or other audited subject.</td>
 </tr>
 <tr>
 <td>subject_model<br /><code>string</code></td>
 <td><code>ProviderService::class</code></td>
-<td>The model class name of the subject. Kept generic so any application module's model may be used. Auto-calculates <code>subject_type</code>.</td>
+<td>The model class name of the subject. Kept generic so any application model may be used. Auto-calculates <code>subject_type</code>.</td>
 </tr>
 <tr>
 <td>tenant_id<br /><code>string</code></td>
