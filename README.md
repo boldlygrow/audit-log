@@ -68,18 +68,25 @@ The old `provisionesta/audit` package name is retained as a `replace` alias, so 
 
 If you are contributing to this package, see [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on configuring a local composer package with symlinks.
 
-### Publish the configuration file
+### Publish the config and migration
 
-**This is optional** and only needed if you want to customize response schemas ([`dump_config`](#standardized-configurations-for-response-array)) or any other setting.
+Publish both the config file and the migration together:
 
 ```plain
 php artisan vendor:publish --tag=audit-log
 ```
 
-For [database persistence](#database-persistence), also publish the migration:
+Or publish them separately:
 
 ```plain
+php artisan vendor:publish --tag=audit-log-config
 php artisan vendor:publish --tag=audit-log-migrations
+```
+
+Publishing the config file (`config/audit-log.php`) is optional — the package works with sensible defaults and it is only needed to customize settings such as response schemas ([`dump_config`](#standardized-configurations-for-response-array)). The migration is required for [database persistence](#database-persistence), which is enabled by default; run it afterward:
+
+```plain
+php artisan migrate
 ```
 
 ## Usage Examples
@@ -613,10 +620,10 @@ The legacy string parameters (`record_type: 'App\\Models\\Okta\\User'`) still wo
 
 In addition to writing to the system log, entries can be persisted to a database table for perpetual audit storage and querying.
 
-1. Publish and run the migration:
+1. Publish and run the migration (skip the publish if you already ran `vendor:publish --tag=audit-log`):
 
    ```plain
-   php artisan vendor:publish --tag=audit-log-migrations
+   php artisan vendor:publish --tag=audit-log
    php artisan migrate
    ```
 

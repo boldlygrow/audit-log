@@ -45,15 +45,15 @@ class AuditLogServiceProvider extends ServiceProvider
     /**
      * Publish config file to application
      *
-     * Once the `php artisan vendor::publish` command is run, you can use the
-     * configuration file values `$value = config('audit.option');`
+     * Registered under two tags: `audit-log` (the umbrella tag shared with the
+     * migration) and `audit-log-config` (targets the config file on its own).
      */
     protected function publishConfigFile(): void
     {
         if ($this->app->runningInConsole()) {
             $this->publishes(
                 [__DIR__ . '/Config/audit-log.php' => config_path('audit-log.php')],
-                'audit-log'
+                ['audit-log', 'audit-log-config']
             );
         }
     }
@@ -63,15 +63,23 @@ class AuditLogServiceProvider extends ServiceProvider
      *
      * The migration is published rather than auto-loaded so that a single copy
      * owns the table (avoiding duplicate-run conflicts) and applications may
-     * customize the schema. Publish it with
-     * `vendor:publish --tag=audit-log-migrations`.
+     * customize the schema. It is registered under two tags:
+     *
+     *   - `audit-log` — the umbrella tag shared with the config file, so
+     *     `vendor:publish --tag=audit-log` publishes both in one step.
+     *   - `audit-log-migrations` — targets the migration on its own.
+     *
+     * `publishesMigrations()` rewrites the migration's `0001_01_01_000000_` date
+     * prefix to the current timestamp on publish when the application's
+     * `database.migrations.update_date_on_publish` config is enabled (the
+     * default in current Laravel skeletons).
      */
     protected function publishMigrations(): void
     {
         if ($this->app->runningInConsole()) {
-            $this->publishes(
+            $this->publishesMigrations(
                 [__DIR__ . '/Database/Migrations' => database_path('migrations')],
-                'audit-log-migrations'
+                ['audit-log', 'audit-log-migrations']
             );
         }
     }

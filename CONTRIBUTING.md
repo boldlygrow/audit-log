@@ -51,7 +51,7 @@ respective Laravel version.
 
 ```bash
 # Set temporary environment variable
-export SDK_LARAVEL_VERSION=10
+export SDK_LARAVEL_VERSION=11
 cd ~/Code
 # Create new Laravel projects
 composer create-project laravel/laravel:^${SDK_LARAVEL_VERSION}.0 laravel${SDK_LARAVEL_VERSION}-pkg-test
