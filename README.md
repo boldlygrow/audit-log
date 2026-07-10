@@ -108,18 +108,12 @@ AuditLog::create(
 
 You can copy and paste this example anywhere in your code that you would create a log entry. Any arguments that are not relevant can be removed and will be considered null.
 
+The `actor_*` fields are intentionally omitted below — they are automatically populated from the authenticated user based on your configuration. See [Actor Metadata](#actor-metadata) to customize, map, or override them.
+
 ```php
 use BoldlyGrow\AuditLog\AuditLog;
 
 AuditLog::create(
-    actor_email: auth()->user()->email,
-    actor_id: auth()->user()->id,
-    actor_name: auth()->user()->name,
-    actor_provider_id: auth()->user()->provider_id,
-    actor_session_id: session()->getId(),
-    actor_source: 'web',
-    actor_type: config('auth.providers.users.model'),
-    actor_username: auth()->user()->username,
     attribute_key: 'xxx',
     attribute_value_old: 'xxx',
     attribute_value_new: 'xxx',
@@ -184,6 +178,8 @@ AuditLog::create(
 
 ### Log Parameter Definitions
 
+> The `actor_*` fields are auto-populated from the authenticated user using the attribute map in `config('audit-log.actor.attributes')`, so you normally do not pass them. Provide an `actor_*` argument only to **override** the automatic value. For those rows, the **Example Usage** column shows the default source of the value. See [Actor Metadata](#actor-metadata) for mapping and overriding.
+
 <table>
 <thead>
 <tr>
@@ -217,43 +213,43 @@ AuditLog::create(
 </tr>
 <tr>
 <td>actor_email<br><code>string</code></td>
-<td><code>auth()->user()->email</code></td>
-<td>The email address of the actor</td>
+<td><code>email</code> attribute (default)</td>
+<td>The email address of the actor. Auto-populated from the user; pass to override.</td>
 </tr>
 <tr>
 <td>actor_id<br><code>string</code></td>
-<td><code>auth()->user()->id</code></td>
-<td>The database ID of the actor</td>
+<td><code>id</code> attribute (default)</td>
+<td>The database ID of the actor. Auto-populated from the user; pass to override.</td>
 </tr>
 <tr>
 <td>actor_name<br><code>string</code></td>
-<td><code>auth()->user()->name</code></td>
-<td>The first and last name of the actor</td>
+<td><code>name</code> ?? <code>full_name</code> (default)</td>
+<td>The first and last name of the actor. Auto-populated from the user; pass to override.</td>
 </tr>
 <tr>
 <td>actor_provider_id<br><code>string</code></td>
-<td><code>auth()->user()->provider_id</code></td>
-<td>The 3rd party vendor API ID of the actor (ex. Okta User ID)</td>
+<td><code>provider_id</code> attribute (default)</td>
+<td>The 3rd party vendor API ID of the actor (ex. Okta User ID). Auto-populated from the user; pass to override.</td>
 </tr>
 <tr>
 <td>actor_session_id<br><code>string</code></td>
 <td><code>session()->getId()</code></td>
-<td>The session ID of the actor</td>
+<td>The session ID of the actor. Auto-populated; pass to override.</td>
 </tr>
 <tr>
 <td>actor_source<br><code>string</code></td>
-<td><code>system</code><br><code>api</code><br><code>web</code><br><code>cli</code></td>
-<td>The origin of the request. Auto-detected as <code>system</code>, <code>api</code>, or <code>web</code> when omitted; see <a href="#actor-source">Actor Source</a>. Validated against <code>config('audit-log.actor.source.allowed')</code>.</td>
+<td><code>system</code> / <code>api</code> / <code>web</code> (auto-detected)</td>
+<td>The origin of the request. Auto-detected when omitted, or pass <code>cli</code>/a custom value explicitly; see <a href="#actor-source">Actor Source</a>. Validated against <code>config('audit-log.actor.source.allowed')</code>.</td>
 </tr>
 <tr>
 <td>actor_type<br><code>string</code></td>
-<td><code>config('auth.providers.users.model')</code></td>
-<td>The fully-qualified class name of the authenticated user model.</td>
+<td>authenticated user model class</td>
+<td>The fully-qualified class name of the authenticated user model. Auto-populated; pass to override.</td>
 </tr>
 <tr>
 <td>actor_username<br><code>string</code></td>
-<td><code>auth()->user()->username</code></td>
-<td>The username of the actor</td>
+<td><code>username</code> attribute (default)</td>
+<td>The username of the actor. Auto-populated from the user; pass to override.</td>
 </tr>
 <tr>
 <td>attribute_key<br /><code>string</code></td>
