@@ -163,7 +163,7 @@ Audit records frequently become an unintentional store of sensitive data. To kee
 
 - **Do not put secrets or PII in `message`.** The message is written in plain text to the system log channel, which may be forwarded to third-party services.
 - **Be deliberate with `attribute_value_old` / `attribute_value_new` and `metadata`.** These can capture changed values. Redact or tokenize sensitive attributes before logging.
-- **Encrypt at rest where required.** The published [`App\Models\AuditLog` overlay](README.md#database-persistence) is yours to extend — add `encrypted` / `encrypted:array` casts to sensitive columns, and secure the underlying database.
+- **Encrypt at rest where required.** Extend the base [`AuditLog` model](README.md#database-persistence) with your own class — add `encrypted` / `encrypted:array` casts to sensitive columns, and secure the underlying database.
 - **Apply retention.** Persisted rows are not auto-purged; implement a retention/erasure job consistent with your data-retention and privacy obligations (e.g., GDPR/CCPA).
 
 ## Framework Versions & References

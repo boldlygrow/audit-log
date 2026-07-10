@@ -20,7 +20,7 @@ All merge requests can be assigned to one or all of the maintainers at your disc
 
 ### Testing
 
-The package uses [Pest](https://pestphp.com/) (on top of PHPUnit) with [Orchestra Testbench](https://github.com/orchestral/testbench) to boot a lightweight Laravel container for feature tests. The suite lives in the `tests/` directory and covers the logger, actor resolution, response formatting, database persistence, the Eloquent model, and the `audit-log:install` command.
+The package uses [Pest](https://pestphp.com/) (on top of PHPUnit) with [Orchestra Testbench](https://github.com/orchestral/testbench) to boot a lightweight Laravel container for feature tests. The suite lives in the `tests/` directory and covers the logger, actor resolution, response formatting, database persistence, and the Eloquent model.
 
 Install the dependencies and run the suite:
 

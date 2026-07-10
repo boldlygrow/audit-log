@@ -21,11 +21,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * ## Extending
  *
- * Run `php artisan audit-log:install` to publish an application overlay (by
- * default `App\Models\AuditLog`) that extends this class. Point
- * `config('audit-log.database.model')` at your overlay and reference the overlay
- * from your UI and API code. Add application-specific relationships and casts to
- * the overlay so package upgrades do not overwrite them.
+ * To add application-specific relationships, casts, or scopes, create your own
+ * model (for example `App\Models\AuditLog`) that extends this class and point
+ * `config('audit-log.database.model')` at it. Reference your model from your UI
+ * and API code; extending the base means package upgrades flow through
+ * automatically.
  *
  * ## Polymorphic relationships
  *
@@ -33,7 +33,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * while the paired `*_type` column stores a human-friendly snake_case string.
  * The relationships below morph on the `*_model` (FQCN) columns so no morph map
  * is required. If you prefer a morph map keyed on the `*_type` string, override
- * these methods in your overlay and register the map via `Relation::enforceMorphMap()`.
+ * these methods in your model and register the map via `Relation::enforceMorphMap()`.
  *
  * The `subject_model` column is intentionally generic — it may reference any
  * model in the consuming application (including a custom module), so the
