@@ -722,9 +722,9 @@ class AuditLog
      * Persist the audit log entry to the database
      *
      * The model is resolved from `config('audit-log.database.model')`. If the
-     * model is missing or invalid, a warning is logged and persistence is
-     * skipped so that a misconfiguration never prevents the calling code from
-     * completing.
+     * model is missing/invalid or its table has not been migrated, a warning is
+     * logged and persistence is skipped so that a misconfiguration never
+     * prevents the calling code from completing.
      *
      * @param array<string, mixed> $log_data
      *      The key/value array of columns to persist
@@ -741,6 +741,23 @@ class AuditLog
                     'method' => __METHOD__,
                     'event_type' => 'audit.log.create.error.model',
                     'model' => $model,
+                ]
+            );
+
+            return;
+        }
+
+        /** @var \Illuminate\Database\Eloquent\Model $instance */
+        $instance = new $model;
+
+        if (!$instance->getConnection()->getSchemaBuilder()->hasTable($instance->getTable())) {
+            LaravelLog::log(
+                level: 'warning',
+                message: 'Audit Logs database table not found. Run the migration or disable the database integration in config/audit-log.php',
+                context: [
+                    'method' => __METHOD__,
+                    'event_type' => 'audit.log.create.error.table',
+                    'table' => $instance->getTable(),
                 ]
             );
 

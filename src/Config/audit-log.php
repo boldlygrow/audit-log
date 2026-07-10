@@ -2,8 +2,7 @@
 
 return [
     'actor' => [
-        // @phpstan-ignore larastan.noEnvCallsOutsideOfConfig
-        'enabled' => env('AUDIT_ACTOR_ENABLED', true),
+        'enabled' => true,
 
         /*
          | The request headers (in order of preference) that contain the actor's
@@ -16,8 +15,7 @@ return [
         ],
 
         'source' => [
-            // @phpstan-ignore larastan.noEnvCallsOutsideOfConfig
-            'enabled' => env('AUDIT_ACTOR_SOURCE_ENABLED', true),
+            'enabled' => true,
 
             /*
              | The allowed actor source values. This is the single place to tweak
@@ -37,7 +35,7 @@ return [
         /*
          | The attribute(s) read from the authenticated user model to populate
          | each actor field. Override these if your user model uses different
-         | column names (for example `work_email` or `display_name`). Each value
+         | column names (for example `work_email` or `full_name`). Each value
          | may be a single attribute name or an ordered list of candidates, in
          | which case the first non-null value wins.
          */
@@ -60,19 +58,22 @@ return [
     ],
 
     'database' => [
-        // @phpstan-ignore larastan.noEnvCallsOutsideOfConfig
-        'enabled' => env('AUDIT_DATABASE_ENABLED', false),
+        /*
+         | Whether audit events passed with `database: true` are persisted to the
+         | database. This is a per-application "set it and forget it" switch. If
+         | your application cannot support a database (for example a Laravel Zero
+         | CLI app), set this to false.
+         */
+        'enabled' => true,
 
         /*
-         | The Eloquent model used to persist audit log entries when
-         | `database: true` is passed to AuditLog::create(). The package ships a
-         | working base model; run `php artisan audit-log:install` to publish an
-         | application overlay (App\Models\AuditLog) and point this value at it.
+         | The Eloquent model used to persist audit log entries. The package ships
+         | a working model; to add relationships or casts, create your own model
+         | that extends it and point this value at your class.
          */
         'model' => \BoldlyGrow\AuditLog\Models\AuditLog::class,
 
-        // @phpstan-ignore larastan.noEnvCallsOutsideOfConfig
-        'table' => env('AUDIT_DATABASE_TABLE', 'audit_logs'),
+        'table' => 'audit_logs',
 
         /*
          | Additional metadata keys that should be flattened out of the `metadata`

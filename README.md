@@ -76,10 +76,10 @@ If you are contributing to this package, see [CONTRIBUTING.md](CONTRIBUTING.md) 
 php artisan vendor:publish --tag=audit-log
 ```
 
-If you plan to use [database persistence](#database-persistence), run the interactive installer instead — it publishes the config, generates an application model, and publishes the migration in one step.
+For [database persistence](#database-persistence), also publish the migration:
 
 ```plain
-php artisan audit-log:install
+php artisan vendor:publish --tag=audit-log-migrations
 ```
 
 ## Usage Examples
@@ -530,7 +530,7 @@ The allowed vocabulary lives in one place. Add your own values (for example `ser
 // config/audit-log.php
 'actor' => [
     'source' => [
-        'enabled' => env('AUDIT_ACTOR_SOURCE_ENABLED', true),
+        'enabled' => true,
         'allowed' => ['system', 'cli', 'api', 'web'],
     ],
 ],
@@ -560,16 +560,12 @@ AuditLog::create(
 
 Actor metadata is enabled by default. You can disable actor metdata if you do not want to capture actor metadata automatically or your application does not support request and session data (ex. Laravel Zero CLI app).
 
-You can use an environment variables or your `.env` file to disable it.
-
-`AUDIT_ACTOR_ENABLED=false`
-
-If your application cannot support actor metadata, you can permanently disable it in `config/audit-log.php`.
+Set the `enabled` flag to `false` in `config/audit-log.php`:
 
 ```diff
     'actor' => [
--        'enabled' => env('AUDIT_ACTOR_ENABLED', true)
-+        'enabled' => false
+-        'enabled' => true,
++        'enabled' => false,
     ],
 ```
 
@@ -617,25 +613,14 @@ The legacy string parameters (`record_type: 'App\\Models\\Okta\\User'`) still wo
 
 In addition to writing to the system log, entries can be persisted to a database table for perpetual audit storage and querying.
 
-1. Run the installer to publish the config, an application model overlay, and the migration:
+1. Publish and run the migration:
 
    ```plain
-   php artisan audit-log:install
-   ```
-
-   The overlay (`App\Models\AuditLog` by default) extends the package base model `BoldlyGrow\AuditLog\Models\AuditLog`. Add relationships and casts to the overlay, and reference it from your UI and API code — it is safe from package upgrades. The installer also reminds you to point `config('audit-log.database.model')` at the overlay.
-
-2. Enable persistence and run the migration:
-
-   ```plain
-   AUDIT_DATABASE_ENABLED=true
-   ```
-
-   ```plain
+   php artisan vendor:publish --tag=audit-log-migrations
    php artisan migrate
    ```
 
-3. Pass `database: true` on the events you want to persist:
+2. Pass `database: true` on the events you want to persist:
 
    ```php
    use BoldlyGrow\AuditLog\AuditLog;
@@ -647,7 +632,22 @@ In addition to writing to the system log, entries can be persisted to a database
    );
    ```
 
-The table name is configurable via `config('audit-log.database.table')` (or the `AUDIT_DATABASE_TABLE` env variable). If persistence is enabled but the configured model is missing or invalid, a warning is logged and the event is still logged normally — a misconfiguration never prevents your code from completing.
+Database persistence is **enabled by default** via `config('audit-log.database.enabled')`; set it to `false` if your application does not use a database. Entries are stored using the package's `BoldlyGrow\AuditLog\Models\AuditLog` model by default.
+
+To add relationships, casts, or scopes — for example to reference the audit log from your UI or API — create your own model that extends the base model and point `config('audit-log.database.model')` at it:
+
+```php
+namespace App\Models;
+
+use BoldlyGrow\AuditLog\Models\AuditLog as BaseAuditLog;
+
+class AuditLog extends BaseAuditLog
+{
+    // Add your relationships, casts, and scopes here.
+}
+```
+
+The table name is configurable via `config('audit-log.database.table')`. If persistence is enabled but the table has not been migrated (or the configured model is invalid), a warning is logged and the event is still written to the system log — a misconfiguration never prevents your code from completing.
 
 ### Adding Custom Fields
 
@@ -673,7 +673,7 @@ You will often need to store application-specific fields (for example a tenant, 
    ],
    ```
 
-3. Add a relationship to your published `App\Models\AuditLog` overlay if desired.
+3. Add a relationship to your own `App\Models\AuditLog` model (if you created one extending the base model) if desired.
 
 4. Pass the value inside `metadata`:
 

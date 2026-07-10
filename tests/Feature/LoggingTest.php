@@ -41,3 +41,17 @@ describe('system log entry', function () {
         );
     });
 });
+
+describe('database persistence warnings', function () {
+    it('warns and skips persistence when the audit table does not exist', function () {
+        config()->set('audit-log.database.table', 'missing_audit_table');
+        Log::spy();
+
+        AuditLog::create(...auditArgs(['database' => true]));
+
+        Log::shouldHaveReceived('log')->withArgs(
+            fn ($level, $message, $context = []) => $level === 'warning'
+                && str_contains($message, 'Audit Logs database table not found')
+        );
+    });
+});

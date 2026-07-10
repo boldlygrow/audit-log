@@ -2,7 +2,6 @@
 
 namespace BoldlyGrow\AuditLog;
 
-use BoldlyGrow\AuditLog\Console\InstallCommand;
 use Illuminate\Support\ServiceProvider;
 
 class AuditLogServiceProvider extends ServiceProvider
@@ -14,7 +13,6 @@ class AuditLogServiceProvider extends ServiceProvider
         $this->bootRoutes();
         $this->publishConfigFile();
         $this->publishMigrations();
-        $this->registerCommands();
     }
 
     public function register()
@@ -65,8 +63,8 @@ class AuditLogServiceProvider extends ServiceProvider
      *
      * The migration is published rather than auto-loaded so that a single copy
      * owns the table (avoiding duplicate-run conflicts) and applications may
-     * customize the schema. Use `php artisan audit-log:install` for an
-     * interactive publish, or `vendor:publish --tag=audit-log-migrations`.
+     * customize the schema. Publish it with
+     * `vendor:publish --tag=audit-log-migrations`.
      */
     protected function publishMigrations(): void
     {
@@ -75,18 +73,6 @@ class AuditLogServiceProvider extends ServiceProvider
                 [__DIR__ . '/Database/Migrations' => database_path('migrations')],
                 'audit-log-migrations'
             );
-        }
-    }
-
-    /**
-     * Register the package console commands.
-     */
-    protected function registerCommands(): void
-    {
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                InstallCommand::class,
-            ]);
         }
     }
 

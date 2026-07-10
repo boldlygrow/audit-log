@@ -42,7 +42,7 @@ vendor/bin/phpstan analyse
 
 ### Dependencies
 
-This package intentionally depends only on the individual `illuminate/*` components it uses (`config`, `console`, `database`, `log`, `support`) rather than the full `laravel/framework`. When adding functionality, prefer a specific `illuminate/*` module over pulling in the framework, and add new `require` entries with the same multi-version constraint span as the existing ones.
+This package intentionally depends only on the individual `illuminate/*` components it uses (`config`, `database`, `log`, `support`) rather than the full `laravel/framework`. When adding functionality, prefer a specific `illuminate/*` module over pulling in the framework, and add new `require` entries with the same multi-version constraint span as the existing ones.
 
 ### Laravel Test Application
 
