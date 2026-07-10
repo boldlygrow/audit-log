@@ -19,19 +19,35 @@
         "illuminate/support": "^8.0 || ^9.0 || ^10.0 || ^11.0 || ^12.0"
     },
     "require-dev": {
-        "orchestra/testbench": "^6.23 || ^7.0 || ^8.0 || ^9.0 || ^10.0",
-        "larastan/larastan": "^2.7 || ^3.0"
+        "orchestra/testbench": "^6.23 || ^7.0 || ^8.0 || ^9.0 || ^10.0 || ^11.0",
+        "larastan/larastan": "^2.7 || ^3.0",
+        "pestphp/pest": "^4.7",
+        "pestphp/pest-plugin-laravel": "^4.1"
     },
     "autoload": {
         "psr-4": {
             "BoldlyGrow\\AuditLog\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "BoldlyGrow\\AuditLog\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "test:coverage": "pest --coverage"
+    },
     "extra": {
         "laravel": {
             "providers": [
                 "BoldlyGrow\\AuditLog\\AuditLogServiceProvider"
             ]
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
         }
     }
 }

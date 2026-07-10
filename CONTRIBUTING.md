@@ -18,6 +18,32 @@ Before assigning your PR to a maintainer, please review the pipeline CI job outp
 
 All merge requests can be assigned to one or all of the maintainers at your discretion. It is helpful to add a comment with any context that the maintainer/reviewer should know or be on the look out for.
 
+### Testing
+
+The package uses [Pest](https://pestphp.com/) (on top of PHPUnit) with [Orchestra Testbench](https://github.com/orchestral/testbench) to boot a lightweight Laravel container for feature tests. The suite lives in the `tests/` directory and covers the logger, actor resolution, response formatting, database persistence, the Eloquent model, and the `audit-log:install` command.
+
+Install the dependencies and run the suite:
+
+```bash
+composer install
+composer test
+# or: vendor/bin/pest
+```
+
+Tests run against an in-memory SQLite database, so no external services are required. Please add or update tests for any behavior you change, and make sure the suite is green before assigning your merge request.
+
+### Static Analysis
+
+The package is analyzed with [Larastan](https://github.com/larastan/larastan) (PHPStan) at the level configured in `phpstan.neon`.
+
+```bash
+vendor/bin/phpstan analyse
+```
+
+### Dependencies
+
+This package intentionally depends only on the individual `illuminate/*` components it uses (`config`, `console`, `database`, `log`, `support`) rather than the full `laravel/framework`. When adding functionality, prefer a specific `illuminate/*` module over pulling in the framework, and add new `require` entries with the same multi-version constraint span as the existing ones.
+
 ### Laravel Test Application
 
 You can create a new Laravel application for a specific version to perform local testing with. This allows you to easily use Tinkerwell for each
