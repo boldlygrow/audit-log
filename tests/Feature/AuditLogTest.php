@@ -32,7 +32,7 @@ describe('model to type auto-calculation', function () {
         expect($result['record_type'])->toBe('App\\Models\\Legacy\\Thing');
     });
 
-    it('lets *_model take precedence over a legacy *_type', function () {
+    it('lets an explicit *_type override the value calculated from *_model', function () {
         $result = AuditLog::create(...auditArgs([
             'record_type' => 'App\\Models\\Legacy\\Thing',
             'record_model' => 'App\\Models\\Okta\\User',
@@ -53,6 +53,20 @@ describe('relationship fields', function () {
 
         expect($result['related_type'])->toBe('okta_group')
             ->and($result['subject_type'])->toBe('custom_widget');
+    });
+
+    it('lets an explicit related_type or subject_type override the calculated value', function () {
+        $result = AuditLog::create(...auditArgs([
+            'related_id' => 'r1',
+            'related_type' => 'external_identity',
+            'related_model' => 'App\\Models\\Okta\\Group',
+            'subject_id' => 's1',
+            'subject_type' => 'billing_customer',
+            'subject_model' => 'App\\Models\\Custom\\Widget',
+        ]));
+
+        expect($result['related_type'])->toBe('external_identity')
+            ->and($result['subject_type'])->toBe('billing_customer');
     });
 
     it('computes parent and tenant types from their models', function () {
