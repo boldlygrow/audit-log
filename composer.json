@@ -1,14 +1,17 @@
 {
-    "name": "provisionesta/audit",
+    "name": "boldlygrow/audit-log",
     "description": "Audit and Event Log Handler for Laravel",
-    "homepage": "https://gitlab.com/provisionesta/audit",
+    "homepage": "https://github.com/boldlygrow/audit-log",
     "license": "MIT",
     "authors": [
         {
-            "name": "Jefferson Martin",
-            "email": "provisionesta@jeffersonmartin.com"
+            "name": "Jeff Martin",
+            "email": "jeff@boldlygrow.us"
         }
     ],
+    "replace": {
+        "provisionesta/audit": "self.version"
+    },
     "require": {
         "php": "^8.0",
         "illuminate/config": "^8.0 || ^9.0 || ^10.0 || ^11.0 || ^12.0",
@@ -21,13 +24,13 @@
     },
     "autoload": {
         "psr-4": {
-            "Provisionesta\\Audit\\": "src/"
+            "BoldlyGrow\\AuditLog\\": "src/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Provisionesta\\Audit\\AuditServiceProvider"
+                "BoldlyGrow\\AuditLog\\AuditLogServiceProvider"
             ]
         }
     }

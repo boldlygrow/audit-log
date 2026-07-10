@@ -12,9 +12,9 @@ We do not maintain a roadmap of feature requests, however we invite you to contr
 
 ## Code Contributions
 
-We have transitioned from issue-first to MR-first development. We will create an issue for any deferred work, however you can start contributing by creating a new `feature/*` or `hotfix/*` branch and create a merge request.
+We have transitioned from issue-first to PR-first development. We will create an issue for any deferred work, however you can start contributing by creating a new `feature/*` or `hotfix/*` branch and create a merge request.
 
-Before assigning your MR to a maintainer, please review the pipeline CI job outputs for any errors and fix anything that appears.
+Before assigning your PR to a maintainer, please review the pipeline CI job outputs for any errors and fix anything that appears.
 
 All merge requests can be assigned to one or all of the maintainers at your discretion. It is helpful to add a comment with any context that the maintainer/reviewer should know or be on the look out for.
 
@@ -30,14 +30,14 @@ cd ~/Code
 # Create new Laravel projects
 composer create-project laravel/laravel:^${SDK_LARAVEL_VERSION}.0 laravel${SDK_LARAVEL_VERSION}-pkg-test
 # Create sylinks in directory
-mkdir -p laravel${SDK_LARAVEL_VERSION}-pkg-test/packages/provisionesta
-ln -s ~/Code/audit ~/Code/laravel${SDK_LARAVEL_VERSION}-pkg-test/packages/provisionesta/audit
+mkdir -p laravel${SDK_LARAVEL_VERSION}-pkg-test/packages/boldlygrow
+ln -s ~/Code/audit-log ~/Code/laravel${SDK_LARAVEL_VERSION}-pkg-test/packages/boldlygrow/audit-log
 # Custom repository location configuration
 cd ~/Code/laravel${SDK_LARAVEL_VERSION}-pkg-test
-sed -i '.bak' -e 's/seeders\/"/&,\n            "Provisionesta\\\\Audit\\\\": "packages\/provisionesta\/audit\/src"/g' composer.json
-composer config repositories.audit '{"type": "path", "url": "packages/provisionesta/audit"}' --file composer.json
-composer require provisionesta/audit:dev-main
-php artisan vendor:publish --tag=audit
+sed -i '.bak' -e 's/seeders\/"/&,\n            "BoldlyGrow\\\\AuditLog\\\\": "packages\/boldlygrow\/audit-log\/src"/g' composer.json
+composer config repositories.audit-log '{"type": "path", "url": "packages/boldlygrow/audit-log"}' --file composer.json
+composer require boldlygrow/audit-log:dev-main
+php artisan vendor:publish --tag=audit-log
 # Unset temporary environment variable
 unset SDK_LARAVEL_VERSION
 ```
@@ -47,12 +47,12 @@ You can link this package into an existing Laravel application using the followi
 ```bash
 cd ~/Code/my-project-name
 
-mkdir -p packages/provisionesta
-ln -s ~/Code/audit packages/provisionesta/audit
-sed -i '.bak' -e 's/seeders\/"/&,\n            "Provisionesta\\\\Audit\\\\": "packages\/provisionesta\/audit\/src"/g' composer.json
-composer config repositories.audit '{"type": "path", "url": "packages/provisionesta/audit"}' --file composer.json
-composer require provisionesta/audit:dev-main
-php artisan vendor:publish --tag=audit
+mkdir -p packages/boldlygrow
+ln -s ~/Code/audit-log packages/boldlygrow/audit-log
+sed -i '.bak' -e 's/seeders\/"/&,\n            "BoldlyGrow\\\\AuditLog\\\\": "packages\/boldlygrow\/audit-log\/src"/g' composer.json
+composer config repositories.audit-log '{"type": "path", "url": "packages/boldlygrow/audit-log"}' --file composer.json
+composer require boldlygrow/audit-log:dev-main
+php artisan vendor:publish --tag=audit-log
 ```
 
 ## Custom Application Configuration
@@ -67,14 +67,14 @@ You can mitigate this problem by creating a local symlink (with resolved namespa
 # Pre-Requisite (you should already have this)
 # You can use any directory you want (if not using ~/Code)
 cd ~/Code
-git clone https://gitlab.com/provisionesta/audit.git
+git clone https://github.com/boldlygrow/audit-log.git
 ```
 
 ```bash
 cd ~/Code/{my-laravel-app}
-mkdir -p packages/provisionesta
-cd packages/provisionesta
-ln -s ~/Code/audit audit
+mkdir -p packages/boldlygrow
+cd packages/boldlygrow
+ln -s ~/Code/audit-log audit-log
 ```
 
 ### Application Composer
@@ -87,7 +87,7 @@ Update the `composer.json` file in your testing application (not the package) to
 "autoload": {
     "psr-4": {
         "App\\": "app/",
-        "Provisionesta\\Okta\\": "packages/provisionesta/audit/src",
+        "BoldlyGrow\\AuditLog\\": "packages/boldlygrow/audit-log/src",
     }
 },
 ```
@@ -99,20 +99,20 @@ Credit: https://laravel-news.com/developing-laravel-packages-with-local-composer
 ```bash
 cd ~/Code/{my-laravel-app}
 
-composer config repositories.audit '{"type": "path", "url": "packages/provisionesta/audit"}' --file composer.json
+composer config repositories.audit-log '{"type": "path", "url": "packages/boldlygrow/audit-log"}' --file composer.json
 
-composer require provisionesta/audit:dev-main
+composer require boldlygrow/audit-log:dev-main
 
 # Package operations: 1 install, 0 updates, 0 removals
-#  - Installing provisionesta/audit (dev-main): Symlinking from packages/provisionesta/audit
+#  - Installing boldlygrow/audit-log (dev-main): Symlinking from packages/boldlygrow/audit-log
 ```
 
 ### Validation and Config Copy
 
 ```bash
-php artisan vendor:publish --tag=audit
+php artisan vendor:publish --tag=audit-log
 
-# Copied File [/Users/jmartin/Code/audit/src/Config/audit.php] To [/config/audit.php]
+# Copied File [/Users/jmartin/Code/audit-log/src/Config/audit-log.php] To [/config/audit-log.php]
 # Publishing complete.
 ```
 

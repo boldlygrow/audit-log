@@ -1,10 +1,11 @@
 <?php
 
-namespace Provisionesta\Audit;
+namespace BoldlyGrow\AuditLog;
 
+use BoldlyGrow\AuditLog\Console\InstallCommand;
 use Illuminate\Support\ServiceProvider;
 
-class AuditServiceProvider extends ServiceProvider
+class AuditLogServiceProvider extends ServiceProvider
 {
     // use ServiceBindings;
 
@@ -12,6 +13,8 @@ class AuditServiceProvider extends ServiceProvider
     {
         $this->bootRoutes();
         $this->publishConfigFile();
+        $this->publishMigrations();
+        $this->registerCommands();
     }
 
     public function register()
@@ -38,7 +41,7 @@ class AuditServiceProvider extends ServiceProvider
      */
     protected function mergeConfig(): void
     {
-        $this->mergeConfigFrom(__DIR__ . '/Config/audit.php', 'audit');
+        $this->mergeConfigFrom(__DIR__ . '/Config/audit-log.php', 'audit-log');
     }
 
     /**
@@ -51,9 +54,39 @@ class AuditServiceProvider extends ServiceProvider
     {
         if ($this->app->runningInConsole()) {
             $this->publishes(
-                [__DIR__ . '/Config/audit.php' => config_path('audit.php')],
-                'audit'
+                [__DIR__ . '/Config/audit-log.php' => config_path('audit-log.php')],
+                'audit-log'
             );
+        }
+    }
+
+    /**
+     * Register the publishable database migration.
+     *
+     * The migration is published rather than auto-loaded so that a single copy
+     * owns the table (avoiding duplicate-run conflicts) and applications may
+     * customize the schema. Use `php artisan audit-log:install` for an
+     * interactive publish, or `vendor:publish --tag=audit-log-migrations`.
+     */
+    protected function publishMigrations(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->publishes(
+                [__DIR__ . '/Database/Migrations' => database_path('migrations')],
+                'audit-log-migrations'
+            );
+        }
+    }
+
+    /**
+     * Register the package console commands.
+     */
+    protected function registerCommands(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                InstallCommand::class,
+            ]);
         }
     }
 

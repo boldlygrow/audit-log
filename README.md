@@ -4,7 +4,7 @@
 
 ## Overview
 
-The Audit package is an open source [Composer](https://getcomposer.org/) package for use in Laravel applications that is used by other [Provisionesta](https://gitlab.com/provisionesta) packages to provide a consistent log syntax and add support for database transactions (upcoming release) for time sensitive events. Although this is purpose built for our packages, you are welcome to adopt this for your own standardized logging.
+The Audit Log package is an open source [Composer](https://getcomposer.org/) package for use in Laravel applications that is used by other [Boldly Grow](https://github.com/boldlygrow) packages to provide a consistent log syntax and optional database persistence for audit events. Although this is purpose built for our packages, you are welcome to adopt this for your own standardized logging.
 
 This is maintained by the open source community and is not maintained by any company. Please use at your own risk and create merge requests for any bugs that you encounter.
 
@@ -12,7 +12,7 @@ This is maintained by the open source community and is not maintained by any com
 
 When using [Laravel Logging](https://laravel.com/docs/10.x/logging) with the `Log::info('Message', ['key1' => 'value', 'key2' => 'value'])` syntax, it is easy to have inconsistency with log formatting that results in a variety of log messages and varying context keys.
 
-The `Provisionesta\Audit\Log::create()` method provides a pre-defined set of context keys that allow us to improve indexing and searchability in external logging platforms, and ensures that all events provide as much context data as possible in a consistent format.
+The `BoldlyGrow\AuditLog\AuditLog::create()` method provides a pre-defined set of context keys that allow us to improve indexing and searchability in external logging platforms, and ensures that all events provide as much context data as possible in a consistent format.
 
 Sometimes you need to get a formatted array that can be added to a changelog or actioned upon programmatically instead of trying to tail a log file. An array is returned for each log entry that is created.
 
@@ -22,7 +22,7 @@ Sometimes you need to get a formatted array that can be added to a changelog or 
 
 We do not maintain a roadmap of feature requests, however we invite you to contribute and we will gladly review your merge requests.
 
-Please create an [issue](https://gitlab.com/provisionesta/okta-api-client/-/issues) for bug reports.
+Please create an [issue](https://github.com/boldlygrow/audit-log/issues) for bug reports.
 
 ### Contributing
 
@@ -32,11 +32,11 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) to learn more about how to contrib
 
 | Name | GitLab Handle | Email |
 |------|---------------|-------|
-| [Jeff Martin](https://www.linkedin.com/in/jeffersonmmartin/) | [@jeffersonmartin](https://gitlab.com/jeffersonmartin) | `provisionesta [at] jeffersonmartin [dot] com` |
+| [Jeff Martin](https://www.linkedin.com/in/jeffersonmmartin/) | [@jeffersonmartin](https://github.com/jeffersonmartin) | `jeff [at] boldlygrow [dot] us` |
 
 ### Contributor Credit
 
-- [Jeff Martin](https://gitlab.com/jeffersonmartin)
+- Jeff Martin
 
 ## Installation
 
@@ -54,8 +54,10 @@ See the [changelog](https://gitlab.com/provisionesta/audit/-/blob/main/changelog
 ### Add Composer Package
 
 ```plain
-composer require provisionesta/audit:^1.3
+composer require boldlygrow/audit-log:^2.0
 ```
+
+The old `provisionesta/audit` package name is retained as a `replace` alias, so existing dependency graphs continue to resolve during the transition.
 
 If you are contributing to this package, see [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on configuring a local composer package with symlinks.
 
@@ -64,7 +66,7 @@ If you are contributing to this package, see [CONTRIBUTING.md](CONTRIBUTING.md) 
 **This is optional**. The configuration file the custom schemas if you are returning the parsed log entry as a variable.
 
 ```plain
-php artisan vendor:publish --tag=audit
+php artisan audit-log:install
 ```
 
 ## Usage Examples
@@ -72,9 +74,9 @@ php artisan vendor:publish --tag=audit
 ### Basic Usage
 
 ```php
-use Provisionesta\Audit\Log;
+use BoldlyGrow\AuditLog\AuditLog;
 
-Log::create(
+AuditLog::create(
     event_ms: $event_ms,
     event_type: 'okta.api.post.success.ok',
     level: 'info',
@@ -94,9 +96,9 @@ Log::create(
 You can copy and paste this example anywhere in your code that you would create a log entry. Any arguments that are not relevant can be removed and will be considered null.
 
 ```php
-use Provisionesta\Audit\Log;
+use BoldlyGrow\AuditLog\AuditLog;
 
-Log::create(
+AuditLog::create(
     actor_email: auth()->user()->email,
     actor_id: auth()->user()->id,
     actor_name: auth()->user()->name,
@@ -150,7 +152,7 @@ Log::create(
 ```json
 {
     "event_type": "okta.api.post.success.ok",
-    "method": "Provisionesta\\Okta\\ApiClient::post",
+    "method": "BoldlyGrow\\Okta\\ApiClient::post",
     "event_ms": 627,
     "metadata": {
         "okta_request_id": "REDACTED",
@@ -453,7 +455,7 @@ You can use an environment variables or your `.env` file to disable it.
 
 `AUDIT_ACTOR_ENABLED=false`
 
-If your application cannot support actor metadata, you can permanently disable it in `config/audit.php`.
+If your application cannot support actor metadata, you can permanently disable it in `config/audit-log.php`.
 
 ```diff
     'actor' => [
@@ -467,9 +469,9 @@ If your application cannot support actor metadata, you can permanently disable i
 You can add the `job_*` parameters if you are running background jobs and want to add metadata to your logs and transactions. All of these values (except `job_timestamp`) are freeform strings that you can standardize however you'd like.
 
 ```php
-use Provisionesta\Audit\Log;
+use BoldlyGrow\AuditLog\AuditLog;
 
-Log::create(
+AuditLog::create(
     // ...
     job_batch: '{string}',
     job_id: '{string}',
@@ -503,17 +505,17 @@ As an alternative to creating a transaction, you can also return a formatted arr
 Simply define a variable to get the returned array.
 
 ```php
-use Provisionesta\Audit\Log;
+use BoldlyGrow\AuditLog\AuditLog;
 
 // Create a log entry with no returned array
-Log::create(
+AuditLog::create(
     // ...
     log: true
     // ...
 );
 
 // Define a variable with the returned array
-$schema = Log::create(
+$schema = AuditLog::create(
     // ...
     log: true
     // ...
@@ -523,7 +525,7 @@ $schema = Log::create(
 foreach($records as $record) {
     // ...
 
-    $changelog[] = Log::create(
+    $changelog[] = AuditLog::create(
         // ...
         log: false
         // ...
@@ -534,11 +536,11 @@ foreach($records as $record) {
 ### Example Response Array with No Configuration
 
 ```php
-use Provisionesta\Audit\Log;
+use BoldlyGrow\AuditLog\AuditLog;
 
 $event_ms = now();
 
-$result = Log::create(
+$result = AuditLog::create(
     event_ms: $event_ms,
     event_type: "okta.api.post.success.ok",
     level: "info",
@@ -549,7 +551,7 @@ $result = Log::create(
         "uri" => "users",
         "url" => "https://dev-12345678.okta.com/api/v1/users?activate=true"
     ],
-    method: "Provisionesta\Okta\ApiClient::get"
+    method: "BoldlyGrow\Okta\ApiClient::get"
 );
 
 dd($result);
@@ -559,7 +561,7 @@ dd($result);
 //     "event_type" => "okta.api.post.success.ok",
 //     "level" => "info",
 //     "message" => "Success",
-//     "method" => "Provisionesta\Okta\ApiClient::get",
+//     "method" => "BoldlyGrow\Okta\ApiClient::get",
 //     "actor_email" => null,
 //     "actor_id" => null,
 //     "actor_name" => null,
@@ -609,9 +611,9 @@ dd($result);
 There are a large number of parameter keys in the schema. To avoid having to use Laravel Collections transform methods with the result array, you can simply pass an array of keys to the `dump_keys` array that you want to be included.
 
 ```php
-use Provisionesta\Audit\Log;
+use BoldlyGrow\AuditLog\AuditLog;
 
-$result = Log::create(
+$result = AuditLog::create(
     // ...
     dump_keys: [
         'event_type',
@@ -649,9 +651,9 @@ dd($result);
 If you need to add custom static strings to your array, they can be specified in the `dump_strings` array. Strings are returned at the end of the array.
 
 ```php
-use Provisionesta\Audit\Log;
+use BoldlyGrow\AuditLog\AuditLog;
 
-$result = Log::create(
+$result = AuditLog::create(
     // ...
     dump_keys: [
         'event_type',
@@ -696,9 +698,9 @@ dd($result);
 The `datetime` is always returned in the first key (table column) of the array. You can customize the format using a string of supported [PHP datetime format characters](https://www.php.net/manual/en/datetime.format.php). By default, we use `c` for the ISO 8601 format (YYYY-MM-DDTHH:II:SS+00:00). You may want to simplify this with `Y-m-d` or `Y-m-d H:i`.
 
 ```php
-use Provisionesta\Audit\Log;
+use BoldlyGrow\AuditLog\AuditLog;
 
-$result = Log::create(
+$result = AuditLog::create(
     // ...
     dump_date: 'c',
     dump_keys: [
@@ -740,9 +742,9 @@ You can define standardized simplified schemas in the `config/audit.php` file fo
 After a schema is defined, simply set the `dump_config` key to the same key that was defined in `config/audit.php`.
 
 ```php
-use Provisionesta\Audit\Log;
+use BoldlyGrow\AuditLog\AuditLog;
 
-$result = Log::create(
+$result = AuditLog::create(
     // ...
     dump_config: 'okta_user'
     // ...
@@ -750,7 +752,7 @@ $result = Log::create(
 ```
 
 ```php
-// config/audit.php
+// config/audit-log.php
 
 return [
     'dump' => [
@@ -794,9 +796,9 @@ return [
 ### Real World Example for Response Arrays
 
 ```php
-use Provisionesta\Audit\Log;
+use BoldlyGrow\AuditLog\AuditLog;
 
-$result = Log::create(
+$result = AuditLog::create(
     attribute_key: $attribute,
     attribute_value_old: $manifest_record[$attribute],
     attribute_value_new: $api_record[$attribute],

@@ -1,6 +1,6 @@
 <?php
 
-namespace Provisionesta\Audit\Exceptions;
+namespace BoldlyGrow\AuditLog\Exceptions;
 
 use Exception;
 
