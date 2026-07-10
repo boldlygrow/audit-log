@@ -5,6 +5,7 @@ use BoldlyGrow\AuditLog\Models\AuditLog as AuditLogModel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -76,6 +77,32 @@ describe('polymorphic relationships', function () {
         $log = AuditLogModel::firstOrFail();
 
         expect($log->subject)->toBeNull();
+    });
+});
+
+describe('encryption at rest', function () {
+    it('stores sensitive fields as ciphertext but decrypts them via the model', function () {
+        AuditLog::create(...auditArgs([
+            'record_id' => '1',
+            'attribute_key' => 'status',
+            'attribute_value_old' => 'active',
+            'attribute_value_new' => 'suspended',
+            'metadata' => ['ssn' => '123-45-6789'],
+            'database' => true,
+        ]));
+
+        // The model transparently decrypts the values.
+        $log = AuditLogModel::firstOrFail();
+        expect($log->attribute_value_old)->toBe('active')
+            ->and($log->attribute_value_new)->toBe('suspended')
+            ->and($log->metadata)->toBe(['ssn' => '123-45-6789']);
+
+        // The raw column values are encrypted, not the plaintext.
+        $raw = DB::table('audit_logs')->first();
+        expect($raw->attribute_value_old)->not->toBe('active')
+            ->and($raw->attribute_value_new)->not->toBe('suspended')
+            ->and($raw->metadata)->not->toContain('123-45-6789')
+            ->and($raw->attribute_key)->toBe('status'); // non-encrypted column stays plaintext
     });
 });
 

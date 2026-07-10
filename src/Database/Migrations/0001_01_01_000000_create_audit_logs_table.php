@@ -21,16 +21,16 @@ return new class extends Migration
             $table->string('method')->nullable();
             $table->timestamp('occurred_at')->nullable();
 
-            // Actor
-            $table->string('actor_email')->nullable();
+            // Actor (encrypted columns use TEXT to fit the ciphertext)
+            $table->text('actor_email')->nullable();
             $table->string('actor_id')->nullable();
             $table->string('actor_ip_addr')->nullable();
-            $table->string('actor_name')->nullable();
+            $table->text('actor_name')->nullable();
             $table->string('actor_provider_id')->nullable();
             $table->string('actor_session_id')->nullable();
             $table->string('actor_source')->nullable();
             $table->string('actor_type')->nullable();
-            $table->string('actor_username')->nullable();
+            $table->text('actor_username')->nullable();
 
             // State changes
             $table->string('attribute_key')->nullable();
@@ -48,7 +48,7 @@ return new class extends Migration
             $table->string('parent_type')->nullable();
             $table->string('parent_provider_id')->nullable();
             $table->string('parent_reference_key')->nullable();
-            $table->string('parent_reference_value')->nullable();
+            $table->text('parent_reference_value')->nullable(); // encrypted
 
             // Record (affected model)
             $table->string('record_id')->nullable();
@@ -56,7 +56,7 @@ return new class extends Migration
             $table->string('record_type')->nullable();
             $table->string('record_provider_id')->nullable();
             $table->string('record_reference_key')->nullable();
-            $table->string('record_reference_value')->nullable();
+            $table->text('record_reference_value')->nullable(); // encrypted
 
             // Related account
             $table->string('related_id')->nullable();
@@ -83,7 +83,7 @@ return new class extends Migration
 
             // Freeform payloads
             $table->json('errors')->nullable();
-            $table->json('metadata')->nullable();
+            $table->text('metadata')->nullable(); // encrypted:array (ciphertext, not JSON)
 
             $table->timestamps();
             $table->softDeletes();

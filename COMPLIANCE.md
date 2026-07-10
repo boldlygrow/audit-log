@@ -162,8 +162,9 @@ CISA does not publish a numbered control catalog like NIST; the most relevant re
 Audit records frequently become an unintentional store of sensitive data. To keep the package's records compliant with data-minimization and confidentiality requirements:
 
 - **Do not put secrets or PII in `message`.** The message is written in plain text to the system log channel, which may be forwarded to third-party services.
-- **Be deliberate with `attribute_value_old` / `attribute_value_new` and `metadata`.** These can capture changed values. Redact or tokenize sensitive attributes before logging.
-- **Encrypt at rest where required.** Extend the base [`AuditLog` model](README.md#database-persistence) with your own class — add `encrypted` / `encrypted:array` casts to sensitive columns, and secure the underlying database.
+- **Note what is encrypted at rest.** The shipped model encrypts `actor_email`, `actor_name`, `actor_username`, `attribute_value_old`, `attribute_value_new`, `parent_reference_value`, `record_reference_value`, and `metadata` in the database (Laravel `encrypted` casts). This protects the *database* copy only — these values are **not** encrypted in the system log channel, so avoid logging what you cannot expose there.
+- **`errors` is not encrypted by default.** Redact or tokenize sensitive content before passing it, or add an `encrypted` cast (and a `TEXT` column) on a model that extends the base.
+- **Extend encryption as needed.** Extend the base [`AuditLog` model](README.md#database-persistence) with your own class to add `encrypted` / `encrypted:array` casts to additional columns, and secure the underlying database and its encryption key.
 - **Apply retention.** Persisted rows are not auto-purged; implement a retention/erasure job consistent with your data-retention and privacy obligations (e.g., GDPR/CCPA).
 
 ## Framework Versions & References

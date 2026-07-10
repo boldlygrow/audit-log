@@ -656,6 +656,10 @@ class AuditLog extends BaseAuditLog
 
 The table name is configurable via `config('audit-log.database.table')`. If persistence is enabled but the table has not been migrated (or the configured model is invalid), a warning is logged and the event is still written to the system log — a misconfiguration never prevents your code from completing.
 
+#### Encryption at Rest
+
+The shipped model encrypts several columns that commonly hold PII or changed values — `actor_email`, `actor_name`, `actor_username`, `attribute_value_old`, `attribute_value_new`, `parent_reference_value`, `record_reference_value`, and `metadata` — using Laravel's `encrypted` casts. Those columns are stored as `TEXT`, and the model decrypts them transparently on read. This protects the database copy only; the same values are **not** encrypted in the system log channel. Encryption requires your application's `APP_KEY` to be set. To encrypt additional columns, add `encrypted` casts on a model that extends the base and switch the corresponding columns to `TEXT`.
+
 ### Adding Custom Fields
 
 You will often need to store application-specific fields (for example a tenant, organization, or workspace ID) on your audit log records. There are two approaches.
@@ -720,6 +724,186 @@ The parsed and formatted schema is always returned as an array.
 | `true`  | `true`        | Log entry is created. Database row is persisted.                   |
 | `false` | `true`        | No log is created. Database row is persisted.                      |
 | `false` | `false`       | No log or database row is created. Used for schema parsing.        |
+
+## Searching Encrypted Fields
+
+The [encrypted columns](#encryption-at-rest) — `actor_email`, `actor_name`, `actor_username`, `attribute_value_old`, `attribute_value_new`, `parent_reference_value`, `record_reference_value`, and the `metadata` array — are stored as ciphertext. Laravel's encryption is **non-deterministic** (encrypting the same value twice produces different ciphertext), so a normal SQL query can never match them:
+
+```php
+// Never matches — the column holds ciphertext, not the plaintext
+AuditLog::where('actor_email', 'jsmith@acme.com')->get();
+```
+
+The base model uses the `BoldlyGrow\AuditLog\Traits\ModelEncryptedLookup` trait, which adds query scopes that decrypt the column in PHP, build a cached `id => value` lookup index, and constrain the query to the matching primary keys.
+
+Throughout this section, `AuditLog` refers to **your Eloquent model** — either the base `BoldlyGrow\AuditLog\Models\AuditLog` or your own `App\Models\AuditLog` that extends it. Every scope returns an Eloquent query builder, so you can chain `->get()`, `->first()`, `->count()`, `->paginate()`, `->orderBy()`, and additional `->where()` constraints just like a normal query.
+
+### Available Scopes
+
+| Scope | Description | Example |
+|-------|-------------|---------|
+| `whereEncryptedStringExact($column, $value)` | Exact, case-insensitive match on an encrypted string column | [Example](#exact-string-match) |
+| `whereEncryptedStringPartial($column, $value)` | Case-insensitive substring match anywhere in the value | [Example](#partial-string-match) |
+| `whereEncryptedStringStartsWith($column, $value)` | Value begins with the term | [Example](#starts-with-and-ends-with) |
+| `whereEncryptedStringEndsWith($column, $value)` | Value ends with the term | [Example](#starts-with-and-ends-with) |
+| `whereEncryptedArraySearch($column, $search)` | Substring match across every key and value of an encrypted array column | [Example](#search-the-entire-array) |
+| `whereEncryptedArrayExact($column, $key, $value)` | Exact match for a specific array key | [Example](#match-a-specific-array-key) |
+| `whereEncryptedArrayPartial($column, $key, $value)` | Substring match for a specific array key | [Example](#match-a-specific-array-key) |
+| `whereEncryptedArrayStartsWith($column, $key, $value)` | A specific array key begins with the term | [Example](#match-a-specific-array-key) |
+| `whereEncryptedArrayEndsWith($column, $key, $value)` | A specific array key ends with the term | [Example](#match-a-specific-array-key) |
+| `encryptedArrayKeys($column)` (static) | List the distinct keys present in an encrypted array column | [Example](#listing-array-keys) |
+
+Every scope except `whereEncryptedArraySearch` accepts a final `bool $cache = true` argument — pass `false` to rebuild the index from fresh data. See [Caching and Fresh Data](#caching-and-fresh-data).
+
+### String Column Searches
+
+#### Exact String Match
+
+`whereEncryptedStringExact()` returns records whose decrypted value equals your term. Matching is **case-insensitive**.
+
+```php
+use App\Models\AuditLog;
+
+// Every event attributed to a specific email address
+$events = AuditLog::whereEncryptedStringExact('actor_email', 'jsmith@acme.com')->get();
+
+// Case does not matter — this also matches "JSmith@Acme.com"
+$event = AuditLog::whereEncryptedStringExact('actor_name', 'john smith')->first();
+```
+
+This is the encrypted-column equivalent of:
+
+```sql
+SELECT * FROM audit_logs WHERE LOWER(actor_email) = LOWER('jsmith@acme.com');
+```
+
+#### Partial String Match
+
+`whereEncryptedStringPartial()` returns records where the term appears anywhere in the decrypted value (case-insensitive substring).
+
+```php
+// Every actor whose email is on the acme.com domain
+$events = AuditLog::whereEncryptedStringPartial('actor_email', 'acme.com')->get();
+
+// Every event whose old value contained "pending"
+$events = AuditLog::whereEncryptedStringPartial('attribute_value_old', 'pending')->get();
+```
+
+#### Starts-With and Ends-With
+
+`whereEncryptedStringStartsWith()` and `whereEncryptedStringEndsWith()` anchor the match to the beginning or end of the value.
+
+```php
+// Emails that start with "jsmith"
+$events = AuditLog::whereEncryptedStringStartsWith('actor_email', 'jsmith')->get();
+
+// Emails that end with the acme.com domain
+$events = AuditLog::whereEncryptedStringEndsWith('actor_email', 'acme.com')->get();
+```
+
+> Matching is **case-insensitive**, like the other scopes. See [Case Sensitivity and Normalization](#case-sensitivity-and-normalization).
+
+### Array Column Searches
+
+The `metadata` column is an encrypted array (`encrypted:array`). These scopes search inside it. The examples assume rows created with metadata like:
+
+```php
+AuditLog::create(
+    // ...
+    database: true,
+    metadata: [
+        'approved_by' => 'John Smith',
+        'ticket' => 'CHG-10482',
+    ],
+);
+```
+
+#### Search the Entire Array
+
+`whereEncryptedArraySearch()` performs a case-insensitive substring search across **all keys and values** of the array.
+
+```php
+// Any metadata that mentions "acme" in any key or value
+$events = AuditLog::whereEncryptedArraySearch('metadata', 'acme')->get();
+```
+
+> `whereEncryptedArraySearch()` always reads live data and does not take a `cache` argument.
+
+#### Match a Specific Array Key
+
+The keyed scopes target one array key:
+
+```php
+// Exact (case-insensitive) match on metadata['approved_by']
+$events = AuditLog::whereEncryptedArrayExact('metadata', 'approved_by', 'John Smith')->get();
+
+// Partial match on metadata['approved_by']
+$events = AuditLog::whereEncryptedArrayPartial('metadata', 'approved_by', 'john')->get();
+
+// Prefix / suffix match on metadata['ticket']
+$events = AuditLog::whereEncryptedArrayStartsWith('metadata', 'ticket', 'chg-')->get();
+$events = AuditLog::whereEncryptedArrayEndsWith('metadata', 'ticket', '10482')->get();
+```
+
+### Listing Array Keys
+
+`encryptedArrayKeys()` (a static method, not a scope) returns the distinct set of keys present across an encrypted array column — useful for building filters or discovering what has been stored.
+
+```php
+$keys = AuditLog::encryptedArrayKeys('metadata');
+
+// [
+//     0 => 'approved_by',
+//     1 => 'ticket',
+//     2 => 'source_ip',
+// ]
+```
+
+### Chaining with Other Constraints
+
+Because the scopes return a query builder, combine them with ordinary constraints, ordering, and pagination:
+
+```php
+// Failed login events for a given user, newest first, paginated
+$events = AuditLog::whereEncryptedStringExact('actor_email', 'jsmith@acme.com')
+    ->where('event_type', 'okta.auth.login.error.invalid')
+    ->orderByDesc('occurred_at')
+    ->paginate(25);
+
+// Count how many events referenced a value
+$count = AuditLog::whereEncryptedStringPartial('record_reference_value', 'acme corp')->count();
+
+// Include soft-deleted rows in the results
+$events = AuditLog::withTrashed()
+    ->whereEncryptedStringExact('actor_username', 'jsmith')
+    ->get();
+```
+
+> The lookup index is built including soft-deleted rows, but the returned query still applies the model's soft-delete scope. Chain `->withTrashed()` (as above) if you want trashed records in the results.
+
+### Case Sensitivity and Normalization
+
+All of the scopes are **case-insensitive**. The lookup index normalizes every stored value to lowercase, and each scope lowercases your search term before comparing, so `John Smith`, `john smith`, and `JOHN SMITH` all match the same records.
+
+### Caching and Fresh Data
+
+Building the lookup index decrypts every row, so the result is cached (the cache payload is itself encrypted) for two minutes. Repeated searches within that window are served from cache.
+
+Pass `cache: false` as the final argument to bypass and rebuild the index — use this immediately after writing rows you need to search:
+
+```php
+// Force a fresh index (e.g., right after creating new audit rows)
+$events = AuditLog::whereEncryptedStringExact('actor_email', 'jsmith@acme.com', cache: false)->get();
+
+$events = AuditLog::whereEncryptedArrayExact('metadata', 'approved_by', 'John Smith', cache: false)->get();
+```
+
+### Performance Considerations
+
+These scopes trade database-side filtering for the ability to search encrypted data:
+
+- On a cache miss, the entire column is decrypted in memory to build the `id => value` index, so cost grows with table size. The index is built over the whole table regardless of any constraints you chain afterward (those constrain the returned builder, not the index). This suits moderate tables and background jobs.
+- Prefer non-encrypted, indexed columns (`event_type`, `record_type` / `record_id`, `actor_id`, `occurred_at`) for high-volume filtering, and use encrypted search to locate specific actors or values.
 
 ## Response Schema
 

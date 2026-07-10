@@ -24,6 +24,8 @@ abstract class TestCase extends Orchestra
      */
     protected function defineEnvironment($app): void
     {
+        // Required for the model's `encrypted` casts.
+        $app['config']->set('app.key', 'base64:' . base64_encode(random_bytes(32)));
         $app['config']->set('audit-log.database.enabled', true);
         $app['config']->set('audit-log.database.model', AuditLogModel::class);
         $app['config']->set('audit-log.database.custom_fields', ['custom_test_field']);

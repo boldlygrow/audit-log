@@ -607,9 +607,9 @@ class AuditLog
             'attribute_value_old' => 'nullable|string',
             'attribute_value_new' => 'nullable|string',
             'database' => 'boolean',
-            'errors' => 'array', // FIXME: Add additional sanitization
+            'errors' => 'array',
             'log' => 'boolean',
-            'metadata' => 'array', // FIXME: Add additional sanitization
+            'metadata' => 'array',
             'occurred_at' => 'nullable|date',
             'parent_id' => 'nullable|string',
             'parent_type' => 'nullable|string',

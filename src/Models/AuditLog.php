@@ -3,14 +3,17 @@
 /**
  * @copyright Jefferson Martin
  * @license MIT <https://spdx.org/licenses/MIT.html>
+ *
  * @link https://github.com/boldlygrow/audit-log
  */
 
 namespace BoldlyGrow\AuditLog\Models;
 
+use BoldlyGrow\AuditLog\Traits\ModelEncryptedLookup;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * Audit Log entry model.
@@ -39,62 +42,63 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * model in the consuming application (including a custom module), so the
  * `subject()` relationship is not constrained to a single class.
  *
- * @property int                             $id
- * @property string|null                     $event_type
- * @property string|null                     $level
- * @property string|null                     $message
- * @property string|null                     $method
- * @property \Illuminate\Support\Carbon|null $occurred_at
- * @property string|null                     $actor_email
- * @property string|null                     $actor_id
- * @property string|null                     $actor_ip_addr
- * @property string|null                     $actor_name
- * @property string|null                     $actor_provider_id
- * @property string|null                     $actor_session_id
- * @property string|null                     $actor_source
- * @property string|null                     $actor_type
- * @property string|null                     $actor_username
- * @property string|null                     $attribute_key
- * @property string|null                     $attribute_value_old
- * @property string|null                     $attribute_value_new
- * @property int|null                        $count_records
- * @property int|null                        $duration_ms_per_record
- * @property int|null                        $event_ms_per_record
- * @property string|null                     $parent_id
- * @property string|null                     $parent_model
- * @property string|null                     $parent_type
- * @property string|null                     $parent_provider_id
- * @property string|null                     $parent_reference_key
- * @property string|null                     $parent_reference_value
- * @property string|null                     $record_id
- * @property string|null                     $record_model
- * @property string|null                     $record_type
- * @property string|null                     $record_provider_id
- * @property string|null                     $record_reference_key
- * @property string|null                     $record_reference_value
- * @property string|null                     $related_id
- * @property string|null                     $related_model
- * @property string|null                     $related_type
- * @property string|null                     $subject_id
- * @property string|null                     $subject_model
- * @property string|null                     $subject_type
- * @property string|null                     $tenant_id
- * @property string|null                     $tenant_model
- * @property string|null                     $tenant_type
- * @property string|null                     $job_batch
- * @property string|null                     $job_id
- * @property string|null                     $job_platform
- * @property string|null                     $job_pipeline_id
- * @property \Illuminate\Support\Carbon|null $job_timestamp
- * @property string|null                     $job_transaction_id
- * @property array<string, mixed>|null       $errors
- * @property array<string, mixed>|null       $metadata
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
- * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property int                       $id
+ * @property string|null               $event_type
+ * @property string|null               $level
+ * @property string|null               $message
+ * @property string|null               $method
+ * @property Carbon|null               $occurred_at
+ * @property string|null               $actor_email
+ * @property string|null               $actor_id
+ * @property string|null               $actor_ip_addr
+ * @property string|null               $actor_name
+ * @property string|null               $actor_provider_id
+ * @property string|null               $actor_session_id
+ * @property string|null               $actor_source
+ * @property string|null               $actor_type
+ * @property string|null               $actor_username
+ * @property string|null               $attribute_key
+ * @property string|null               $attribute_value_old
+ * @property string|null               $attribute_value_new
+ * @property int|null                  $count_records
+ * @property int|null                  $duration_ms_per_record
+ * @property int|null                  $event_ms_per_record
+ * @property string|null               $parent_id
+ * @property string|null               $parent_model
+ * @property string|null               $parent_type
+ * @property string|null               $parent_provider_id
+ * @property string|null               $parent_reference_key
+ * @property string|null               $parent_reference_value
+ * @property string|null               $record_id
+ * @property string|null               $record_model
+ * @property string|null               $record_type
+ * @property string|null               $record_provider_id
+ * @property string|null               $record_reference_key
+ * @property string|null               $record_reference_value
+ * @property string|null               $related_id
+ * @property string|null               $related_model
+ * @property string|null               $related_type
+ * @property string|null               $subject_id
+ * @property string|null               $subject_model
+ * @property string|null               $subject_type
+ * @property string|null               $tenant_id
+ * @property string|null               $tenant_model
+ * @property string|null               $tenant_type
+ * @property string|null               $job_batch
+ * @property string|null               $job_id
+ * @property string|null               $job_platform
+ * @property string|null               $job_pipeline_id
+ * @property Carbon|null               $job_timestamp
+ * @property string|null               $job_transaction_id
+ * @property array<string, mixed>|null $errors
+ * @property array<string, mixed>|null $metadata
+ * @property Carbon|null               $created_at
+ * @property Carbon|null               $updated_at
+ * @property Carbon|null               $deleted_at
  */
 class AuditLog extends Model
 {
+    use ModelEncryptedLookup;
     use SoftDeletes;
 
     /**
@@ -121,14 +125,76 @@ class AuditLog extends Model
     protected function casts(): array
     {
         return [
+            // Event metadata
+            'event_type' => 'string',
+            'level' => 'string',
+            'message' => 'string',
+            'method' => 'string',
             'occurred_at' => 'datetime',
-            'job_timestamp' => 'datetime',
+
+            // Actor
+            'actor_email' => 'encrypted',
+            'actor_id' => 'string',
+            'actor_ip_addr' => 'string',
+            'actor_name' => 'encrypted',
+            'actor_provider_id' => 'string',
+            'actor_session_id' => 'string',
+            'actor_source' => 'string',
+            'actor_type' => 'string',
+            'actor_username' => 'encrypted',
+
+            // State changes
+            'attribute_key' => 'string',
+            'attribute_value_old' => 'encrypted',
+            'attribute_value_new' => 'encrypted',
+
+            // Counts and durations
             'count_records' => 'integer',
             'duration_ms_per_record' => 'integer',
             'event_ms_per_record' => 'integer',
-            'actor_source' => 'string',
+
+            // Parent
+            'parent_id' => 'string',
+            'parent_model' => 'string',
+            'parent_type' => 'string',
+            'parent_provider_id' => 'string',
+            'parent_reference_key' => 'string',
+            'parent_reference_value' => 'encrypted',
+
+            // Record
+            'record_id' => 'string',
+            'record_model' => 'string',
+            'record_type' => 'string',
+            'record_provider_id' => 'string',
+            'record_reference_key' => 'string',
+            'record_reference_value' => 'encrypted',
+
+            // Related
+            'related_id' => 'string',
+            'related_model' => 'string',
+            'related_type' => 'string',
+
+            // Subject
+            'subject_id' => 'string',
+            'subject_model' => 'string',
+            'subject_type' => 'string',
+
+            // Tenant
+            'tenant_id' => 'string',
+            'tenant_model' => 'string',
+            'tenant_type' => 'string',
+
+            // Background job metadata
+            'job_batch' => 'string',
+            'job_id' => 'string',
+            'job_platform' => 'string',
+            'job_pipeline_id' => 'string',
+            'job_timestamp' => 'datetime',
+            'job_transaction_id' => 'string',
+
+            // Freeform payloads
             'errors' => 'array',
-            'metadata' => 'array',
+            'metadata' => 'encrypted:array',
         ];
     }
 
