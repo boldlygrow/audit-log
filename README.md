@@ -16,7 +16,14 @@ The `BoldlyGrow\AuditLog\AuditLog::create()` method provides a pre-defined set o
 
 Sometimes you need to get a formatted array that can be added to a changelog or actioned upon programmatically instead of trying to tail a log file. An array is returned for each log entry that is created.
 
-(Upcoming release) Since some log events need to be actioned, this package adds support for an `audit_transactions` database table that allows you to centrally manage it like a background job queue and trigger different actions and workflows based on your own application and business requirements.
+### What You Get
+
+- **Standardized log syntax** — a predefined set of context keys for consistent indexing and searchability in external logging platforms.
+- **A returned array** — every call returns a formatted, filterable array you can use as a data transfer object, append to a changelog, or action programmatically.
+- **Optional database persistence** — write events to a queryable `audit_logs` table for perpetual, SQL-searchable audit storage in addition to (or instead of) the system log. See [Database Persistence](#database-persistence).
+- **A configurable, extensible schema** — actor attribute mapping, model-to-type auto-calculation, request-origin tracking, and custom columns, so the package adapts to your models and conventions without being forked.
+
+For how these capabilities map to common compliance frameworks (SOC 1/2, ISO 27001, NIST 800-53/63/171, CISA, CIS) and the shared-responsibility boundaries, see [COMPLIANCE.md](COMPLIANCE.md).
 
 ### Issue Tracking and Bug Reports
 
@@ -42,14 +49,14 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) to learn more about how to contrib
 
 ### Requirements
 
-| Requirement | Version                                   |
-|-------------|-------------------------------------------|
-| PHP         | `^8.0`                                    |
-| Laravel     | `^8.0`, `^9.0`, `^10.0`, `^11.0`, `^12.0` |
+| Requirement | Version                                             |
+|-------------|-----------------------------------------------------|
+| PHP         | `^8.0`                                              |
+| Laravel     | `^8.0`, `^9.0`, `^10.0`, `^11.0`, `^12.0`, `^13.0`  |
 
 ### Upgrade Guide
 
-See the [changelog](https://gitlab.com/provisionesta/audit/-/blob/main/changelog/) for release notes.
+See the [changelog](changelog/) for release notes. If you are upgrading from `provisionesta/audit` (1.x), read the [2.0 changelog](changelog/2.0.md) for the package rename, class rename, and configuration changes.
 
 ### Add Composer Package
 
@@ -63,7 +70,13 @@ If you are contributing to this package, see [CONTRIBUTING.md](CONTRIBUTING.md) 
 
 ### Publish the configuration file
 
-**This is optional**. The configuration file the custom schemas if you are returning the parsed log entry as a variable.
+**This is optional** and only needed if you want to customize response schemas ([`dump_config`](#standardized-configurations-for-response-array)) or any other setting.
+
+```plain
+php artisan vendor:publish --tag=audit-log
+```
+
+If you plan to use [database persistence](#database-persistence), run the interactive installer instead — it publishes the config, generates an application model, and publishes the migration in one step.
 
 ```plain
 php artisan audit-log:install
@@ -104,14 +117,18 @@ AuditLog::create(
     actor_name: auth()->user()->name,
     actor_provider_id: auth()->user()->provider_id,
     actor_session_id: session()->getId(),
+    actor_source: 'web',
     actor_type: config('auth.providers.users.model'),
     actor_username: auth()->user()->username,
     attribute_key: 'xxx',
     attribute_value_old: 'xxx',
     attribute_value_new: 'xxx',
     count_records: count($array),
-    dump: false,
+    database: false,
+    dump_config: null,
+    dump_date: 'c',
     dump_keys: [],
+    dump_strings: [],
     duration_ms: $duration_ms,
     duration_ms_per_record: (int) ($duration_ms / count($records)),
     errors: [],
@@ -125,29 +142,31 @@ AuditLog::create(
     method: __METHOD__,
     occurred_at: $entity->created_at,
     parent_id: $parent->id,
-    parent_type: 'App\\Models\\{Provider}\\Application',
-    // parent_type: ProviderApplication::class,
+    parent_model: ProviderApplication::class, // parent_type => "provider_application"
     parent_provider_id: $parent->provider_id,
     parent_reference_key: 'name',
     parent_reference_value: $entity->organization->name,
     record_id: $entity->id,
-    record_type: 'App\\Models\\{Provider}\\{Entity}',
-    // record_type: ProviderEntity::class,
+    record_model: ProviderEntity::class,      // record_type => "provider_entity"
     record_provider_id: $entity->provider_id,
     record_reference_key: 'name',
     record_reference_value: $entity->name,
+    related_id: $manager->id,
+    related_model: ProviderUser::class,
+    subject_id: $service->id,
+    subject_model: ProviderService::class,
     tenant_id: $entity->provider_organization_id,
-    tenant_type: 'App\\Models\\{Provider}\\Organization',
-    // tenant_type: ProviderOrganization::class,
-    transaction: false
+    tenant_model: ProviderOrganization::class,
 );
 ```
 
 ### Example Output
 
 ```plain
-[YYYY-MM-DD HH:II:SS] local.DEBUG: ApiClient::post Success {"event_type":"okta.api.post.success.ok","method":"Provisionesta\\Okta\\ApiClient::post","event_ms":627,"metadata":{"okta_request_id":"REDACTED","rate_limit_remaining":"16","uri":"users","url":"https://dev-12345678.okta.com/api/v1/users?activate=true"}"}
+[YYYY-MM-DD HH:II:SS] local.DEBUG: ApiClient Success {"event_type":"okta.api.post.success.ok","method":"BoldlyGrow\\Okta\\ApiClient::post","event_ms":627,"metadata":{"okta_request_id":"REDACTED","rate_limit_remaining":"16","uri":"users","url":"https://dev-12345678.okta.com/api/v1/users?activate=true"}"}
 ```
+
+> The log message is prefixed with the class name only (`ApiClient`). The fully-qualified `method` remains in the log context.
 
 ```json
 {
@@ -222,9 +241,14 @@ AuditLog::create(
 <td>The session ID of the actor</td>
 </tr>
 <tr>
+<td>actor_source<br><code>string</code></td>
+<td><code>system</code><br><code>api</code><br><code>web</code><br><code>cli</code></td>
+<td>The origin of the request. Auto-detected as <code>system</code>, <code>api</code>, or <code>web</code> when omitted; see <a href="#actor-source">Actor Source</a>. Validated against <code>config('audit-log.actor.source.allowed')</code>.</td>
+</tr>
+<tr>
 <td>actor_type<br><code>string</code></td>
 <td><code>config('auth.providers.users.model')</code></td>
-<td>(Many-to-Many Relationship Events) The fully-qualified namespace of the database model with a many-to-many relationship.</td>
+<td>The fully-qualified class name of the authenticated user model.</td>
 </tr>
 <tr>
 <td>actor_username<br><code>string</code></td>
@@ -252,9 +276,14 @@ AuditLog::create(
 <td>(Multiple records) Count of records processed.</td>
 </tr>
 <tr>
+<td>database<br /><code>bool</code></td>
+<td><code>true</code><br /><code>false</code> (default)</td>
+<td>Whether to persist this event to the database. See <a href="#database-persistence">Database Persistence</a>.</td>
+</tr>
+<tr>
 <td>dump_config<br /><code>string</code></td>
 <td><code>default</code></td>
-<td>(<a href="#response-schema">Response Schema</a>) The array key in <code>config/audit.php</code> that contains the <code>date</code>, <code>keys</code>, <code>strings</code> <a href="#standardized-configurations-for-response-array">schema configuration</a>. The other <code>dump_*</code> parameters are ignored if <code>dump_config</code> is set.</td>
+<td>(<a href="#response-schema">Response Schema</a>) The array key in <code>config/audit-log.php</code> that contains the <code>date</code>, <code>keys</code>, <code>strings</code> <a href="#standardized-configurations-for-response-array">schema configuration</a>. The other <code>dump_*</code> parameters are ignored if <code>dump_config</code> is set.</td>
 </tr>
 <tr>
 <td>dump_date<br /><code>string</code></td>
@@ -264,7 +293,7 @@ AuditLog::create(
 <tr>
 <td>dump_keys<br /><code>array</code></td>
 <td>See <a href="#response-schema">docs</a></td>
-<td>(<a href="#response-schema">Response Schema</a>) An filtered list of array of keys from the <code>Log::create()</code> method that returned in the response array.</td>
+<td>(<a href="#response-schema">Response Schema</a>) An filtered list of array of keys from the <code>AuditLog::create()</code> method that returned in the response array.</td>
 </tr>
 <tr>
 <td>dump_strings<br /><code>array</code></td>
@@ -352,6 +381,11 @@ AuditLog::create(
 <td>(Many-to-Many Relationship Events) The fully-qualified namespace of the database model with a many-to-many relationship.</td>
 </tr>
 <tr>
+<td>parent_model<br /><code>string</code></td>
+<td><code>ProviderApplication::class</code></td>
+<td>(Many-to-Many Relationship Events) The model class name. Auto-calculates <code>parent_type</code>; see <a href="#model-references-and-automatic-types">Model References</a>.</td>
+</tr>
+<tr>
 <td>parent_provider_id<br /><code>string</code></td>
 <td><code>a1b2c3d4e5f6</code></td>
 <td>(Many-to-Many Relationship Events) The API ID of the database model with a many-to-many relationship that is usually stored in the database in the `provider_id` column.</td>
@@ -377,6 +411,11 @@ AuditLog::create(
 <td>The fully-qualified namespace of the database model</td>
 </tr>
 <tr>
+<td>record_model<br /><code>string</code></td>
+<td><code>ProviderEntity::class</code></td>
+<td>The model class name of the affected record. Auto-calculates <code>record_type</code>; see <a href="#model-references-and-automatic-types">Model References</a>.</td>
+</tr>
+<tr>
 <td>record_provider_id<br /><code>string</code></td>
 <td><code>a1b2c3d4e5f6</code></td>
 <td>The API ID of the affected database model that is usually stored in the database in the `provider_id` column.</td>
@@ -392,6 +431,26 @@ AuditLog::create(
 <td>The value of the human readable database column</td>
 </tr>
 <tr>
+<td>related_id<br /><code>string</code></td>
+<td><code>{uuid}</code></td>
+<td>The database ID of a related human or service account.</td>
+</tr>
+<tr>
+<td>related_model<br /><code>string</code></td>
+<td><code>ProviderUser::class</code></td>
+<td>The model class name of the related account. Auto-calculates <code>related_type</code>.</td>
+</tr>
+<tr>
+<td>subject_id<br /><code>string</code></td>
+<td><code>{uuid}</code></td>
+<td>The database ID of the impacted human or service account subject.</td>
+</tr>
+<tr>
+<td>subject_model<br /><code>string</code></td>
+<td><code>ProviderService::class</code></td>
+<td>The model class name of the subject. Kept generic so any application module's model may be used. Auto-calculates <code>subject_type</code>.</td>
+</tr>
+<tr>
 <td>tenant_id<br /><code>string</code></td>
 <td><code>{uuid}</code></td>
 <td>The database ID of the top-level organization/tenant for the provider</td>
@@ -402,9 +461,14 @@ AuditLog::create(
 <td>The fully-qualified namespace of the database model of the top-level entity (organization, tenant, etc) for the provider.</td>
 </tr>
 <tr>
-<td>transaction<br /><code>bool</code></td>
+<td>tenant_model<br /><code>string</code></td>
+<td><code>ProviderOrganization::class</code></td>
+<td>The model class name of the top-level entity. Auto-calculates <code>tenant_type</code>.</td>
+</tr>
+<tr>
+<td>transaction<br /><code>bool</code> (deprecated)</td>
 <td><code>true</code><br /><code>false</code> (default)</td>
-<td>Whether to create a Transaction database entry for this event</td>
+<td>Deprecated alias for <code>database</code>. Either flag persists the event. Prefer <code>database</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -417,23 +481,71 @@ The following fields related to the actor (authenticated user) are captured with
 
 This uses `Auth::user()` that uses the model configured in the `providers` array in `config/auth.php`. The Laravel default is `App\Models\User::class`, however your application may use a different model.
 
+#### Mapping Custom User Attributes
+
+If your user model uses different column names (for example `work_email` or `display_name`), map each actor field to the attribute(s) it should read in `config('audit-log.actor.attributes')`. A mapping may be a single attribute name or an ordered list of candidates, in which case the first non-null value wins (this is how `name` falls back to `full_name` by default).
+
+```php
+// config/audit-log.php
+'actor' => [
+    'attributes' => [
+        'id' => 'id',
+        'email' => 'work_email',
+        'name' => ['display_name', 'name', 'full_name'],
+        'provider_id' => 'okta_id',
+        'username' => 'handle',
+    ],
+],
+```
+
 | Attribute           | Authenticated (`Auth::check()`)                 | Unauthenticated      |
 |---------------------|-------------------------------------------------|----------------------|
 | `actor_email`       | `Auth::user()->email`                           | null                 |
 | `actor_id`          | `Auth::user()->id`                              | null                 |
-| `actor_ip_addr`     | `request()->ip()`                               | `request()->ip()`    |
+| `actor_ip_addr`     | proxy header or `request()->ip()`               | proxy header or `request()->ip()` |
 | `actor_name`        | `Auth::user()->name ?? Auth::user()->full_name` | null                 |
 | `actor_provider_id` | `Auth::user()->provider_id`                     | null                 |
 | `actor_session_id`  | `session()->getId()`                            | `session()->getId()` |
+| `actor_source`      | `system` / `api` / `web` (auto-detected)        | `system` / `api` / `web` |
 | `actor_type`        | `config('auth.providers.users.model')`          | null                 |
 | `actor_username`    | `Auth::user()->username`                        | null                 |
 
-For developer experience, the table below above the defaults that are populated for the actor fields, however you can override them by specifying the key value pair in `Log::create()`.
+#### Actor IP Address Behind a Proxy or CDN
+
+If your application is behind a proxy or CDN, add the trusted header(s) that carry the originating IP to `config('audit-log.actor.ip_headers')`. The first non-empty header wins, falling back to `request()->ip()`.
 
 ```php
-use Provisionesta\Audit\Log;
+// config/audit-log.php
+'actor' => [
+    'ip_headers' => [
+        'CF-Connecting-IP',
+        'X-Forwarded-For',
+    ],
+],
+```
 
-Log::create(
+#### Actor Source
+
+The `actor_source` field records the origin of the request. It is auto-detected as `system` (console commands and queued jobs), `api` (API routes or requests that expect JSON), or `web`. The `cli` value is available for applications that detect device-based tokens, and must be passed explicitly.
+
+The allowed vocabulary lives in one place. Add your own values (for example `service`) there, and any value passed to `AuditLog::create(actor_source: '...')` is validated against the list.
+
+```php
+// config/audit-log.php
+'actor' => [
+    'source' => [
+        'enabled' => env('AUDIT_ACTOR_SOURCE_ENABLED', true),
+        'allowed' => ['system', 'cli', 'api', 'web'],
+    ],
+],
+```
+
+The table above shows the defaults that are auto-populated for each actor field. You can override any of them by passing the corresponding argument to `AuditLog::create()`.
+
+```php
+use BoldlyGrow\AuditLog\AuditLog;
+
+AuditLog::create(
     // ...
     actor_email: '{string}',
     actor_id: '{string}',
@@ -441,6 +553,7 @@ Log::create(
     actor_name: '{string}',
     actor_provider_id: '{string}',
     actor_session_id: '{string}',
+    actor_source: '{string}',
     actor_type: '{string}',
     actor_username: '{string}',
     // ...
@@ -466,7 +579,7 @@ If your application cannot support actor metadata, you can permanently disable i
 
 ### Background Job Log Entry
 
-You can add the `job_*` parameters if you are running background jobs and want to add metadata to your logs and transactions. All of these values (except `job_timestamp`) are freeform strings that you can standardize however you'd like.
+You can add the `job_*` parameters if you are running background jobs and want to add metadata to your logs and persisted database records. All of these values (except `job_timestamp`) are freeform strings that you can standardize however you'd like.
 
 ```php
 use BoldlyGrow\AuditLog\AuditLog;
@@ -483,24 +596,133 @@ AuditLog::create(
 );
 ```
 
+### Model References and Automatic Types
+
+Each relationship (`parent`, `record`, `related`, `subject`, `tenant`) accepts a fully-qualified model class name via a `*_model` parameter. The paired `*_type` value is auto-calculated as a snake_case string using the namespace configured in `config('audit-log.model.namespace')` (default `App\Models\`).
+
+```php
+use BoldlyGrow\AuditLog\AuditLog;
+
+AuditLog::create(
+    // ...
+    record_id: $user->id,
+    record_model: \App\Models\Okta\User::class, // record_type => "okta_user"
+    related_id: $manager->id,
+    related_model: \App\Models\Okta\User::class,
+    subject_id: $service->id,
+    subject_model: \App\Models\Service::class,  // any module's model may be used
+    // ...
+);
+```
+
+The legacy string parameters (`record_type: 'App\\Models\\Okta\\User'`) still work for backwards compatibility. When both are provided, the `*_model` value takes precedence.
+
+### Database Persistence
+
+In addition to writing to the system log, entries can be persisted to a database table for perpetual audit storage and querying.
+
+1. Run the installer to publish the config, an application model overlay, and the migration:
+
+   ```plain
+   php artisan audit-log:install
+   ```
+
+   The overlay (`App\Models\AuditLog` by default) extends the package base model `BoldlyGrow\AuditLog\Models\AuditLog`. Add relationships and casts to the overlay, and reference it from your UI and API code — it is safe from package upgrades. The installer also reminds you to point `config('audit-log.database.model')` at the overlay.
+
+2. Enable persistence and run the migration:
+
+   ```plain
+   AUDIT_DATABASE_ENABLED=true
+   ```
+
+   ```plain
+   php artisan migrate
+   ```
+
+3. Pass `database: true` on the events you want to persist:
+
+   ```php
+   use BoldlyGrow\AuditLog\AuditLog;
+
+   AuditLog::create(
+       // ...
+       database: true,
+       // ...
+   );
+   ```
+
+The table name is configurable via `config('audit-log.database.table')` (or the `AUDIT_DATABASE_TABLE` env variable). If persistence is enabled but the configured model is missing or invalid, a warning is logged and the event is still logged normally — a misconfiguration never prevents your code from completing.
+
+### Adding Custom Fields
+
+You will often need to store application-specific fields (for example a tenant, organization, or workspace ID) on your audit log records. There are two approaches.
+
+#### Recommended: Metadata Flatten (no package changes)
+
+1. Add the column(s) to the table with your own migration:
+
+   ```php
+   Schema::table('audit_logs', function (Blueprint $table) {
+       $table->string('federation_organization_id')->nullable()->index();
+   });
+   ```
+
+2. Whitelist the key in `config('audit-log.database.custom_fields')`:
+
+   ```php
+   'database' => [
+       'custom_fields' => [
+           'federation_organization_id',
+       ],
+   ],
+   ```
+
+3. Add a relationship to your published `App\Models\AuditLog` overlay if desired.
+
+4. Pass the value inside `metadata`:
+
+   ```php
+   AuditLog::create(
+       // ...
+       database: true,
+       metadata: [
+           'federation_organization_id' => $organization->id,
+       ],
+       // ...
+   );
+   ```
+
+Whitelisted keys are flattened out of `metadata` into their matching columns. They also remain in the `metadata` JSON for the system log.
+
+#### Advanced: First-Class Parameter
+
+If you want a custom field as a first-class parameter of `AuditLog::create()` (rather than passed via `metadata`), the value must be added in each of these places within the package:
+
+- The `create()` method signature and docblock
+- The `$log_context_keys` grouping
+- The `validate()` rules
+- The `$log_data` array (for persistence)
+- The base model `casts()` (if a non-string cast is needed)
+- The migration
+
 ### Skipping Log Creation
 
-You can specify true/false booleans for `log`, and `transaction` parameters. By default, `log` is `true` and `transaction` is `false`.
+You can specify true/false booleans for the `log` and `database` parameters. By default, `log` is `true` and `database` is `false`. (`transaction` is retained as a deprecated alias for `database`.)
 
 The parsed and formatted schema is always returned as an array.
 
-| `log`   | `transaction` | Behavior                                                                |
-|---------|---------------|-------------------------------------------------------------------------|
-| `true`  | `false`       | (Default) Log entry is created.                                         |
-| `true`  | `true`        | Log entry is created. Database row is created for transaction.          |
-| `false` | `true`        | No log is created. Database row is created for transaction.             |
-| `false` | `false`       | No log or transaction database row is created. Used for schema parsing. |
+| `log`   | `database`    | Behavior                                                            |
+|---------|---------------|--------------------------------------------------------------------|
+| `true`  | `false`       | (Default) Log entry is created.                                    |
+| `true`  | `true`        | Log entry is created. Database row is persisted.                   |
+| `false` | `true`        | No log is created. Database row is persisted.                      |
+| `false` | `false`       | No log or database row is created. Used for schema parsing.        |
 
 ## Response Schema
 
 One of the benefits to this package is the formatted array with predictable keys.
 
-As an alternative to creating a transaction, you can also return a formatted array with all of the keys with provided values (or their default values). This is useful if you simply need an array that you will use for your own changelog or some other purpose. You can also disable log creation and use this like a data transfer object (DTO).
+In addition to (or instead of) writing a log or persisting to the database, every call returns a formatted array with all of the keys and their provided or default values. This is useful if you simply need an array that you will use for your own changelog or some other purpose. You can also disable log creation and use this like a data transfer object (DTO).
 
 Simply define a variable to get the returned array.
 
@@ -564,9 +786,11 @@ dd($result);
 //     "method" => "BoldlyGrow\Okta\ApiClient::get",
 //     "actor_email" => null,
 //     "actor_id" => null,
+//     "actor_ip_addr" => null,
 //     "actor_name" => null,
 //     "actor_provider_id" => null,
-//     "actor_session_id" => null,
+//     "actor_session_id" => "…",
+//     "actor_source" => "system",
 //     "actor_type" => null,
 //     "actor_username" => null,
 //     "attribute_key" => null,
@@ -601,10 +825,16 @@ dd($result);
 //     "record_provider_id" => null,
 //     "record_reference_key" => null,
 //     "record_reference_value" => null,
+//     "related_id" => null,
+//     "related_type" => null,
+//     "subject_id" => null,
+//     "subject_type" => null,
 //     "tenant_id" => null,
 //     "tenant_type" => null,
 // ]
 ```
+
+> The `*_model` parameters do not appear as separate keys in the returned array — they are folded into their paired `*_type` value. When a database row is persisted, both the `*_model` (fully-qualified class) and `*_type` (snake_case) columns are stored.
 
 ### Specifying Keys in Response Array
 
@@ -733,13 +963,13 @@ dd($result);
 
 ### Standardized Configurations for Response Array
 
-> Reminder: You need to [publish the configuration file](#publish-the-configuration-file) for it to appear in `config/audit.php` or it will use the default one in the `vendor/provisionesta/audit` directory that cannot be modified.
+> Reminder: You need to [publish the configuration file](#publish-the-configuration-file) for it to appear in `config/audit-log.php` or it will use the default one in the `vendor/boldlygrow/audit-log` directory that cannot be modified.
 
 It can be difficult to manage your simplified schemas throughout your code base.
 
-You can define standardized simplified schemas in the `config/audit.php` file for each of your use cases. The `default` key is a placeholder that can be customized and you can add additional arrays for each type of resource if needed (ex. `okta_user`).
+You can define standardized simplified schemas in the `config/audit-log.php` file for each of your use cases. The `default` key is a placeholder that can be customized and you can add additional arrays for each type of resource if needed (ex. `okta_user`).
 
-After a schema is defined, simply set the `dump_config` key to the same key that was defined in `config/audit.php`.
+After a schema is defined, simply set the `dump_config` key to the same key that was defined in `config/audit-log.php`.
 
 ```php
 use BoldlyGrow\AuditLog\AuditLog;
@@ -757,7 +987,7 @@ $result = AuditLog::create(
 return [
     'dump' => [
         'default' => [
-            'date' => 'c'
+            'date' => 'c',
             'strings' => [
                 'custom_key' => 'my_value'
             ],
@@ -805,13 +1035,13 @@ $result = AuditLog::create(
     duration_ms: $this->duration_ms,
     event_type: $this->event_type . '.datadumper.manifest.attribute.changed.' . $attribute,
     level: 'info',
-    log: true
+    log: true,
     message: Str::title($attribute) . ' Attribute Value Changed',
     method: __METHOD__,
     record_provider_id: $manifest_record['provider_id'],
     record_reference_key: $this->reference_key,
     record_reference_value: $manifest_record[$this->reference_key] ?? null,
-    transaction: true
+    database: true
 );
 
 dd($result);
