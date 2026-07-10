@@ -1,5 +1,7 @@
 <?php
 
+use BoldlyGrow\AuditLog\Models\AuditLog;
+
 return [
     'actor' => [
         'enabled' => true,
@@ -71,7 +73,7 @@ return [
          | a working model; to add relationships or casts, create your own model
          | that extends it and point this value at your class.
          */
-        'model' => \BoldlyGrow\AuditLog\Models\AuditLog::class,
+        'model' => AuditLog::class,
 
         'table' => 'audit_logs',
 
@@ -101,7 +103,7 @@ return [
                 'record_type',
                 'record_provider_id',
                 'record_reference_key',
-                'record_reference_value'
+                'record_reference_value',
             ],
         ],
         // 'example_key' => [
@@ -122,5 +124,5 @@ return [
         //         'record_reference_value'
         //     ],
         // ],
-    ]
+    ],
 ];

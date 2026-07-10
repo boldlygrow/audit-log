@@ -28,7 +28,7 @@ class AuditLogServiceProvider extends ServiceProvider
      */
     protected function bootRoutes()
     {
-        //$this->loadRoutesFrom(__DIR__.'/Routes/console.php');
+        // $this->loadRoutesFrom(__DIR__.'/Routes/console.php');
     }
 
     /**

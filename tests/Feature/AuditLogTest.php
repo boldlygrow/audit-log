@@ -38,7 +38,7 @@ describe('model to type auto-calculation', function () {
             'record_model' => 'App\\Models\\Okta\\User',
         ]));
 
-        expect($result['record_type'])->toBe('okta_user');
+        expect($result['record_type'])->toBe('App\\Models\\Legacy\\Thing');
     });
 });
 

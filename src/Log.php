@@ -3,6 +3,7 @@
 /**
  * @copyright Jefferson Martin
  * @license MIT <https://spdx.org/licenses/MIT.html>
+ *
  * @link https://github.com/boldlygrow/audit-log
  */
 
@@ -16,7 +17,7 @@ namespace BoldlyGrow\AuditLog;
  * inherited from `AuditLog`, so existing `Log::create(...)` calls continue to
  * work unchanged.
  *
- * @deprecated 2.0 Use {@see \BoldlyGrow\AuditLog\AuditLog} instead. This alias
+ * @deprecated 2.0 Use {@see AuditLog} instead. This alias
  *             is retained for backwards compatibility and will be removed in a
  *             future major version.
  */

@@ -8,6 +8,7 @@ uses(TestCase::class)->in(__DIR__ . '/Feature');
  * A minimal set of required arguments for AuditLog::create().
  *
  * @param  array<string, mixed>  $overrides
+ *
  * @return array<string, mixed>
  */
 function auditArgs(array $overrides = []): array
