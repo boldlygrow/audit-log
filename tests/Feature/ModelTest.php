@@ -71,6 +71,22 @@ describe('polymorphic relationships', function () {
             ->and($log->record_type)->toBe('morph_target');
     });
 
+    it('resolves the tenant relationship via the tenant_model column', function () {
+        $target = MorphTarget::create(['name' => 'acme']);
+
+        AuditLog::create(...auditArgs([
+            'tenant_id' => (string) $target->id,
+            'tenant_model' => MorphTarget::class,
+            'database' => true,
+        ]));
+
+        $log = AuditLogModel::firstOrFail();
+
+        expect($log->tenant)->toBeInstanceOf(MorphTarget::class)
+            ->and($log->tenant->id)->toBe($target->id)
+            ->and($log->tenant_type)->toBe('morph_target');
+    });
+
     it('returns null for a relationship with no model reference', function () {
         AuditLog::create(...auditArgs(['record_id' => '1', 'database' => true]));
 

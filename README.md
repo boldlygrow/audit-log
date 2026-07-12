@@ -696,6 +696,81 @@ $events = AuditLog::createdAfter('2026-01-01')
 
 The `created_at` scopes always apply. `occurred_at` is only populated when you pass `occurred_at` to `AuditLog::create()`, so records logged without it are excluded from the `occurred*` scopes. The `deleted*` scopes call `onlyTrashed()` internally — they return **only** soft-deleted records, so there is no need to add `withTrashed()` yourself.
 
+### Querying by Relationship
+
+Each audit log carries six polymorphic relationships — `actor`, `parent`, `record`, `related`, `subject`, and `tenant` — that morph on the fully-qualified class name stored in the paired `*_model` column (the `actor` relationship uses `actor_type`, which also stores the FQCN). Because the model registers these as standard `MorphTo` relationships and requires no morph map, you can filter by them with Laravel's **native** query builder methods — no package-specific scopes needed. Throughout this section, `AuditLog` refers to **your Eloquent model** — either the base `BoldlyGrow\AuditLog\Models\AuditLog` or your own `App\Models\AuditLog` that extends it.
+
+#### Matching a Related Model with `whereMorphedTo()`
+
+[`whereMorphedTo()`](https://laravel.com/docs/eloquent-relationships#querying-morph-to-relationships) takes a relationship name plus either a **model instance** or a **class-string**, and resolves the underlying columns for you:
+
+```php
+use App\Models\AuditLog;
+use App\Models\Okta\User;
+
+// Logs for ONE specific record — matches record_model = User::class AND record_id = $user->id
+$events = AuditLog::whereMorphedTo('record', $user)->get();
+
+// Logs for ANY record of a class — matches record_model = 'App\Models\Okta\User' (any id)
+$events = AuditLog::whereMorphedTo('record', User::class)->get();
+```
+
+The same call works for every relationship — just swap the first argument:
+
+```php
+$events = AuditLog::whereMorphedTo('actor', $user)->get();     // who performed the action
+$events = AuditLog::whereMorphedTo('subject', $user)->get();   // who/what was impacted
+$events = AuditLog::whereMorphedTo('parent', $model)->get();   // the parent record
+$events = AuditLog::whereMorphedTo('record', $model)->get();   // the affected record
+$events = AuditLog::whereMorphedTo('related', $model)->get();  // a related record
+$events = AuditLog::whereMorphedTo('tenant', $org)->get();     // the owning organization/tenant
+```
+
+What you pass determines how the query is constrained:
+
+| Argument | Constrains | Meaning |
+|----------|------------|---------|
+| A model instance (`$user`) | `*_model` **and** `*_id` | Records tied to this exact model |
+| A class-string (`User::class`) | `*_model` only | Records tied to any instance of this class |
+
+Because every scope returns a query builder, these compose with the [date range scopes](#date-range-scopes) and any other constraint, ordering, or pagination:
+
+```php
+// Everything this actor did in the last 7 days, most recent first
+$events = AuditLog::whereMorphedTo('actor', $user)
+    ->occurredAfter(now()->subDays(7))
+    ->orderByDesc('occurred_at')
+    ->get();
+
+// Actions against a specific tenant since the start of the year, paginated
+$events = AuditLog::whereMorphedTo('tenant', $organization)
+    ->createdAfter('2026-01-01')
+    ->paginate(25);
+```
+
+`whereNotMorphedTo()` is available for the inverse.
+
+#### Filtering by the Related Model's Attributes with `whereHasMorph()`
+
+When you need a condition on the related record itself — not just its identity — use [`whereHasMorph()`](https://laravel.com/docs/eloquent-relationships#querying-relationship-existence). Pass the type(s) to check as the second argument, since a `MorphTo` may point at several classes:
+
+```php
+use App\Models\Okta\User;
+
+// Logs whose subject is an active user
+$events = AuditLog::whereHasMorph('subject', [User::class], function ($query) {
+    $query->where('is_active', true);
+})->get();
+```
+
+#### A Note on `*_type` vs `*_model`
+
+These methods operate on the FQCN `*_model` columns (and `actor_type`). Pass a **class or model instance** — not the human-friendly snake_case `*_type` string. If you want to filter by that string (for example when the referenced model no longer exists), it is a plain indexed column:
+
+```php
+$events = AuditLog::where('record_type', 'okta_user')->get();
+```
+
 ### Adding Custom Fields
 
 You will often need to store application-specific fields (for example a tenant, organization, or workspace ID) on your audit log records. There are two approaches.

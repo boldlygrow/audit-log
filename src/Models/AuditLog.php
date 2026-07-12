@@ -254,6 +254,16 @@ class AuditLog extends Model
     }
 
     /**
+     * The top-level organization/tenant entity for the provider.
+     *
+     * @return MorphTo<Model, $this>
+     */
+    public function tenant(): MorphTo
+    {
+        return $this->morphTo(name: 'tenant', type: 'tenant_model', id: 'tenant_id');
+    }
+
+    /**
      * Get records that were created before a specific date
      *
      * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
