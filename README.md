@@ -664,6 +664,53 @@ The table name is configurable via `config('audit-log.database.table')`. If pers
 
 The shipped model encrypts several columns that commonly hold PII or changed values — `actor_email`, `actor_name`, `actor_username`, `attribute_value_old`, `attribute_value_new`, `parent_reference_value`, `record_reference_value`, and `metadata` — using Laravel's `encrypted` casts. Those columns are stored as `TEXT`, and the model decrypts them transparently on read. This protects the database copy only; the same values are **not** encrypted in the system log channel. Encryption requires your application's `APP_KEY` to be set. To encrypt additional columns, add `encrypted` casts on a model that extends the base and switch the corresponding columns to `TEXT`.
 
+#### Immutability
+
+Audit trails are frequently required to be tamper-evident, so persisted records are **immutable by default**. Two independent controls in `config('audit-log.immutable')` govern this:
+
+```php
+'immutable' => [
+    'update' => true,   // block updates to an existing record
+    'destroy' => true,  // block permanent deletion (forceDelete)
+],
+```
+
+**When a control is `true`**, the operation throws `BoldlyGrow\AuditLog\Exceptions\ImmutableRecordException`:
+
+```php
+$log->update(['message' => 'changed']); // throws when immutable.update is true
+$log->forceDelete();                     // throws when immutable.destroy is true
+```
+
+**A record may always be soft deleted** — this is never blocked (`destroy` only gates `forceDelete()`), so you can hide/expire entries while keeping them recoverable:
+
+```php
+$log->delete();   // always allowed; the record is retained (soft deleted)
+```
+
+**Every mutation is itself recorded** as a new audit entry — including who did it (resolved through the standard actor pipeline) — so the trail is self-describing. Soft deletes and restores are always recorded; updates and force deletes are recorded when their control is `false` (i.e. allowed):
+
+| Operation | `immutable.*` | Result | Recorded event |
+|-----------|---------------|--------|----------------|
+| Soft delete (`delete()`) | — | always allowed | `audit.log.soft_deleted` |
+| Restore (`restore()`) | — | always allowed | `audit.log.restored` |
+| Update | `update: true` | throws | — |
+| Update | `update: false` | allowed | `audit.log.updated` |
+| Force delete (`forceDelete()`) | `destroy: true` | throws | — |
+| Force delete (`forceDelete()`) | `destroy: false` | allowed | `audit.log.destroyed` |
+
+The meta entry links back to the mutated record via `record_id` / `record_model`.
+
+**Atomicity.** Each mutation and the entry it records run in a single database transaction, so a record is never changed without its log — if writing the audit entry fails, the mutation rolls back with it.
+
+**Justification.** For compliance workflows you can attach a reason that is stored on the meta entry's `metadata` (encrypted at rest):
+
+```php
+$log->withJustification('Legal hold released, ticket #4567')->delete();
+```
+
+> Because these controls are enforced on the model, they apply to any model that extends `BoldlyGrow\AuditLog\Models\AuditLog`. Turning a control off is a deliberate, auditable act — the change from `true` to `false` is itself the thing your compliance process should gate.
+
 ### Date Range Scopes
 
 The base model ships query scopes for filtering persisted records by date. Each accepts any [Carbon](https://carbon.nesbot.com/)-parsable date or datetime string (or a `Carbon`/`DateTime` instance), and the comparison is **inclusive** (`<=` / `>=`). Throughout this section, `AuditLog` refers to **your Eloquent model** — either the base `BoldlyGrow\AuditLog\Models\AuditLog` or your own `App\Models\AuditLog` that extends it.

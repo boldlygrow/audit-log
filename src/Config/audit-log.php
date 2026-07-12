@@ -90,6 +90,29 @@ return [
         ],
     ],
 
+    'immutable' => [
+        /*
+         | Immutability controls for persisted audit log records. Audit trails are
+         | frequently required to be tamper-evident, so both default to true.
+         |
+         | When a control is true, the corresponding operation throws
+         | BoldlyGrow\AuditLog\Exceptions\ImmutableRecordException. When it is
+         | false, the operation is allowed AND a new audit log entry is recorded
+         | noting what happened and which actor did it.
+         |
+         | A record may ALWAYS be soft deleted (this is never blocked), and every
+         | soft delete, restore, and — when allowed — update/force delete is
+         | recorded. Only a permanent delete (forceDelete) is gated by `destroy`.
+         */
+
+        // Block updates to an existing audit log record.
+        'update' => true,
+
+        // Block permanent deletion (forceDelete). Soft deletes remain allowed
+        // regardless of this setting.
+        'destroy' => true,
+    ],
+
     'dump' => [
         'default' => [
             'date' => 'c',

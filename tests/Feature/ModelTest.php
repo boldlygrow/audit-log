@@ -125,11 +125,14 @@ describe('encryption at rest', function () {
 describe('soft deletes', function () {
     it('soft deletes rows', function () {
         AuditLog::create(...auditArgs(['record_id' => '1', 'database' => true]));
+        $log = AuditLogModel::firstOrFail();
 
-        AuditLogModel::firstOrFail()->delete();
+        $log->delete();
 
-        expect(AuditLogModel::count())->toBe(0)
-            ->and(AuditLogModel::withTrashed()->count())->toBe(1);
+        // The specific record is soft deleted (a separate meta-log entry is also
+        // recorded — see ImmutabilityTest).
+        expect(AuditLogModel::whereKey($log->id)->exists())->toBeFalse()
+            ->and(AuditLogModel::withTrashed()->whereKey($log->id)->first()->trashed())->toBeTrue();
     });
 });
 

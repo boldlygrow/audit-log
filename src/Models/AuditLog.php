@@ -9,12 +9,15 @@
 
 namespace BoldlyGrow\AuditLog\Models;
 
+use BoldlyGrow\AuditLog\Exceptions\ImmutableRecordException;
+use BoldlyGrow\AuditLog\Traits\ImmutableRecords;
 use BoldlyGrow\AuditLog\Traits\ModelEncryptedLookup;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * Audit Log entry model.
@@ -44,6 +47,14 @@ use Illuminate\Support\Carbon;
  * `subject()` relationship is not constrained to a single class.
  *
  * @property int                       $id
+ * ## Immutability
+ *
+ * Via the {@see ImmutableRecords} trait, updates and permanent deletes are gated
+ * by `config('audit-log.immutable.update')` and `.destroy` (both default true) —
+ * a blocked operation throws {@see ImmutableRecordException}.
+ * Soft deletes are always allowed, and every mutation (or attempt, when allowed)
+ * is itself recorded as a new audit entry.
+ *
  * @property string|null               $event_type
  * @property string|null               $level
  * @property string|null               $message
@@ -99,8 +110,11 @@ use Illuminate\Support\Carbon;
  */
 class AuditLog extends Model
 {
+    use ImmutableRecords;
     use ModelEncryptedLookup;
-    use SoftDeletes;
+    use SoftDeletes {
+        restore as protected restoreWithoutTransaction;
+    }
 
     /**
      * The attributes that are guarded from mass assignment.
@@ -108,6 +122,46 @@ class AuditLog extends Model
      * @var array<int, string>
      */
     protected $guarded = [];
+
+
+    /**
+     * Save the model, wrapping an update in a transaction.
+     *
+     * The {@see ImmutableRecords} trait records every mutation as a new audit
+     * entry; wrapping the update and that entry in one transaction guarantees a
+     * record is never changed without its log — if either fails, both roll back.
+     * Inserts (including the audit entries themselves) record no mutation, so they
+     * skip the wrapper.
+     *
+     * @param  array<string, mixed>  $options
+     */
+    public function save(array $options = [])
+    {
+        if (! $this->exists) {
+            return parent::save($options);
+        }
+
+        return $this->getConnection()->transaction(fn () => parent::save($options));
+    }
+
+    /**
+     * Delete the model, wrapping the delete and its recorded audit entry in a
+     * single transaction. Covers both soft deletes and force deletes (the latter
+     * calls delete() internally).
+     */
+    public function delete()
+    {
+        return $this->getConnection()->transaction(fn () => parent::delete());
+    }
+
+    /**
+     * Restore a soft-deleted model, wrapping the restore and its recorded audit
+     * entry in a single transaction.
+     */
+    public function restore()
+    {
+        return $this->getConnection()->transaction(fn () => $this->restoreWithoutTransaction());
+    }
 
     /**
      * Resolve the table name from configuration so that consuming applications
