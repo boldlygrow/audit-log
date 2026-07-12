@@ -89,6 +89,10 @@ Publishing the config file (`config/audit-log.php`) is optional — the package 
 php artisan migrate
 ```
 
+### Bundled Examples
+
+The package ships copyable reference implementations in the [`examples/`](examples) directory — including two variants of a read-only audit log API (`list` + `describe`), one dependency-free and one using Spatie Query Builder + Laravel Data. They are reference stubs (not autoloaded) to copy into your app and adapt. See [Example API Endpoints](#example-api-endpoints) for details.
+
 ## Usage Examples
 
 ### Basic Usage
@@ -763,13 +767,34 @@ $events = AuditLog::whereHasMorph('subject', [User::class], function ($query) {
 })->get();
 ```
 
-#### A Note on `*_type` vs `*_model`
+#### Simple String Searches with `*_type`
 
-These methods operate on the FQCN `*_model` columns (and `actor_type`). Pass a **class or model instance** — not the human-friendly snake_case `*_type` string. If you want to filter by that string (for example when the referenced model no longer exists), it is a plain indexed column:
+The `whereMorphedTo()` / `whereHasMorph()` methods above operate on the FQCN `*_model` columns (and `actor_type`) — pass a **class or model instance**, not the snake_case string.
+
+For everything else, prefer the paired `*_type` column. It stores a stable, human-friendly snake_case string (`okta_user`) rather than a PHP class name (`App\Models\Okta\User`), so it is a plain column you can match with `where()` or raw SQL:
 
 ```php
 $events = AuditLog::where('record_type', 'okta_user')->get();
 ```
+
+This is the better fit whenever the consumer is not PHP:
+
+- **API filters** — clients pass `record_type=okta_user`, not a fully-qualified class string. The [example API endpoints](#example-api-endpoints) expose exactly this.
+- **CSV / JSON exports and SIEM ingestion** — downstream tools search and correlate on `okta_user` without needing to know your namespace, and the value stays stable even if the underlying model class is later moved or renamed.
+- **Records whose model no longer exists** — the string is preserved regardless of whether the class is still resolvable.
+
+> `actor_type` is the exception: it stores the FQCN (there is no `actor_model` column), so match it with the class string (`where('actor_type', User::class)`).
+
+**Indexing.** Every `*_type` column is indexed by the shipped migration as a compound `(*_type, *_id)` index (for `actor`, `record`, `parent`, `related`, `subject`, and `tenant`). A bare `where('record_type', ...)` still uses the index via its leftmost prefix, and a `where('record_type', ...)->where('record_id', ...)` "history of one record" lookup is fully covered — no extra work on your part. The `(*_model, *_id)` columns are indexed too, so the [relationship queries](#querying-by-relationship) above (`whereMorphedTo()` / morphTo eager-loading) are index-backed as well.
+
+### Example API Endpoints
+
+The package ships copyable reference implementations of a read-only `list` + `describe` audit log API in the [`examples/`](examples) directory — in two flavors:
+
+- [`api-endpoints-no-dependency`](examples/api-endpoints-no-dependency) — a primitive listing (the model results, paginated) using pure Laravel/Eloquent; no extra packages.
+- [`api-endpoints-spatie-data-query`](examples/api-endpoints-spatie-data-query) — declarative `filter[...]` query parameters (including encrypted-field search) and a typed response DTO, using `spatie/laravel-query-builder` and `spatie/laravel-data`.
+
+The Spatie variant exposes the `*_type` strings described above as query filters. They are reference stubs (not autoloaded) — copy them into your app and adapt; each folder's README covers install, setup, and authorization.
 
 ### Adding Custom Fields
 
