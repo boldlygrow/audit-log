@@ -660,6 +660,42 @@ The table name is configurable via `config('audit-log.database.table')`. If pers
 
 The shipped model encrypts several columns that commonly hold PII or changed values — `actor_email`, `actor_name`, `actor_username`, `attribute_value_old`, `attribute_value_new`, `parent_reference_value`, `record_reference_value`, and `metadata` — using Laravel's `encrypted` casts. Those columns are stored as `TEXT`, and the model decrypts them transparently on read. This protects the database copy only; the same values are **not** encrypted in the system log channel. Encryption requires your application's `APP_KEY` to be set. To encrypt additional columns, add `encrypted` casts on a model that extends the base and switch the corresponding columns to `TEXT`.
 
+### Date Range Scopes
+
+The base model ships query scopes for filtering persisted records by date. Each accepts any [Carbon](https://carbon.nesbot.com/)-parsable date or datetime string (or a `Carbon`/`DateTime` instance), and the comparison is **inclusive** (`<=` / `>=`). Throughout this section, `AuditLog` refers to **your Eloquent model** — either the base `BoldlyGrow\AuditLog\Models\AuditLog` or your own `App\Models\AuditLog` that extends it.
+
+| Scope | Column | Description |
+|-------|--------|-------------|
+| `createdBefore($date)` | `created_at` | Records written on or before the date |
+| `createdAfter($date)` | `created_at` | Records written on or after the date |
+| `occurredBefore($date)` | `occurred_at` | Records whose event `occurred_at` is on or before the date |
+| `occurredAfter($date)` | `occurred_at` | Records whose event `occurred_at` is on or after the date |
+| `deletedBefore($date)` | `deleted_at` | **Soft-deleted** records deleted on or before the date |
+| `deletedAfter($date)` | `deleted_at` | **Soft-deleted** records deleted on or after the date |
+
+Every scope returns an Eloquent query builder, so it chains with additional `->where()` constraints, ordering, and pagination just like a normal query:
+
+```php
+use App\Models\AuditLog;
+
+// Records written within a single day
+$events = AuditLog::createdAfter('2026-07-01')
+    ->createdBefore('2026-07-01 23:59:59')
+    ->get();
+
+// Events that occurred in the last week, most recent first
+$events = AuditLog::occurredAfter(now()->subWeek())
+    ->orderByDesc('occurred_at')
+    ->paginate(25);
+
+// Combine with any other constraint
+$events = AuditLog::createdAfter('2026-01-01')
+    ->where('event_type', 'okta.auth.login.error.invalid')
+    ->count();
+```
+
+The `created_at` scopes always apply. `occurred_at` is only populated when you pass `occurred_at` to `AuditLog::create()`, so records logged without it are excluded from the `occurred*` scopes. The `deleted*` scopes call `onlyTrashed()` internally — they return **only** soft-deleted records, so there is no need to add `withTrashed()` yourself.
+
 ### Adding Custom Fields
 
 You will often need to store application-specific fields (for example a tenant, organization, or workspace ID) on your audit log records. There are two approaches.

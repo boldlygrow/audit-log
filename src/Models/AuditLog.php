@@ -10,6 +10,7 @@
 namespace BoldlyGrow\AuditLog\Models;
 
 use BoldlyGrow\AuditLog\Traits\ModelEncryptedLookup;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -250,5 +251,65 @@ class AuditLog extends Model
     public function subject(): MorphTo
     {
         return $this->morphTo(name: 'subject', type: 'subject_model', id: 'subject_id');
+    }
+
+    /**
+     * Get records that were created before a specific date
+     *
+     * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
+     */
+    public function scopeCreatedBefore(Builder $query, $date): Builder
+    {
+        return $query->where('created_at', '<=', Carbon::parse($date));
+    }
+
+    /**
+     * Get records that were created after a specific date
+     *
+     * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
+     */
+    public function scopeCreatedAfter(Builder $query, $date): Builder
+    {
+        return $query->where('created_at', '>=', Carbon::parse($date));
+    }
+
+    /**
+     * Get records that occurred before a specific date
+     *
+     * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
+     */
+    public function scopeOccurredBefore(Builder $query, $date): Builder
+    {
+        return $query->where('occurred_at', '<=', Carbon::parse($date));
+    }
+
+    /**
+     * Get records that occurred after a specific date
+     *
+     * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
+     */
+    public function scopeOccurredAfter(Builder $query, $date): Builder
+    {
+        return $query->where('occurred_at', '>=', Carbon::parse($date));
+    }
+
+    /**
+     * Get only soft deleted records that were deactivated or expired before a specific date
+     *
+     * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
+     */
+    public function scopeDeletedBefore(Builder $query, $date): Builder
+    {
+        return $query->onlyTrashed()->where('deleted_at', '<=', Carbon::parse($date));
+    }
+
+    /**
+     * Get only soft deleted records that were deactivated or expired after a specific date
+     *
+     * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
+     */
+    public function scopeDeletedAfter(Builder $query, $date): Builder
+    {
+        return $query->onlyTrashed()->where('deleted_at', '>=', Carbon::parse($date));
     }
 }
