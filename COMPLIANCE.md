@@ -157,6 +157,14 @@ CISA does not publish a numbered control catalog like NIST; the most relevant re
 | **8.11 Conduct Audit Log Reviews** *(gap)* | Queryable records | Perform periodic reviews |
 | **5.x / 6.x Account & Access Management** | Attributable account/access events | Operate account and access-control processes |
 
+## Record Mutation & Log/Database Atomicity
+
+Persisted audit records are **immutable by default**: updates and permanent deletes are blocked (`config('audit-log.immutable')`), soft deletes are always allowed, and **every mutation is itself recorded as a new audit entry** attributed to the acting user — see [Immutability](README.md#immutability). Each mutation and the entry that records it run in a **single database transaction**, so a persisted record is never changed without a corresponding, committed audit entry; if either write fails, both roll back together.
+
+A consideration for interpreting evidence: the package writes each event to **two independent sinks** — the system **log channel** and, when enabled, the **`audit_logs` database table**. Only the database write participates in the transaction above. The log-channel write is a separate, non-transactional append that happens first and cannot be rolled back, so in the rare case where a mutation is rolled back *after* its log line was emitted, the log channel may contain a line for a change that did not persist.
+
+**Treat the `audit_logs` table as the authoritative, atomic record** of what occurred. The log channel is a best-effort operational mirror (typically rotated, sampled, or forwarded), so reconcile against the database — not the log stream — when integrity is at stake. This does not affect the database's consistency: the table always reflects committed mutations and their audit entries together. Note that this enforcement operates at the application layer through the Eloquent model; it complements, but does not replace, database-level access controls and tamper-evidence (see the integrity responsibilities above).
+
 ## Handling Sensitive Data
 
 Audit records frequently become an unintentional store of sensitive data. To keep the package's records compliant with data-minimization and confidentiality requirements:
