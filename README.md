@@ -83,7 +83,11 @@ php artisan vendor:publish --tag=audit-log-config
 php artisan vendor:publish --tag=audit-log-migrations
 ```
 
-Publishing the config file (`config/audit-log.php`) is optional — the package works with sensible defaults and it is only needed to customize settings such as response schemas ([`dump_config`](#standardized-configurations-for-response-array)). The migration is required for [database persistence](#database-persistence), which is enabled by default; run it afterward:
+Publishing the config file (`config/audit-log.php`) is optional — the package works with sensible defaults and it is only needed to customize settings such as response schemas ([`dump_config`](#standardized-configurations-for-response-array)). The migration is required for [database persistence](#database-persistence), which is enabled by default.
+
+**Before running the migration, review the identifier column formats.** The published migration defaults the primary key to **UUIDv7** (timestamp-ordered — the de facto standard for logging systems) and the polymorphic reference ids (`actor_id`, `record_id`, `parent_id`, `related_id`, `subject_id`, `tenant_id`) to `CHAR(36)`, sized for a UUID or ULID. An inline comment block at the top of the migration shows how to switch any of them to `BIGINT`, `ULID`, or a custom/`VARCHAR` format to match your own models — decide this now, since changing it later means an additional migration. If you change the primary key type, also update the base model's `boot()` id generation (override it on a model that extends the base).
+
+To make sure this review is not skipped, the migration ships with a **`SAFETY CHECK` block at the top of its `up()` method that throws until you delete it** — `php artisan migrate` will fail with an explanatory message until you have reviewed the formats and removed that block. (The guard is skipped automatically under the test runner, so it does not affect your test suite.) Once you have removed it, run:
 
 ```plain
 php artisan migrate

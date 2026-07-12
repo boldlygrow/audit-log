@@ -11,8 +11,43 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // ┌───────────────────────────────────────────────────────────────────┐
+        // │ SAFETY CHECK — DELETE THIS BLOCK TO MIGRATE.                        │
+        // │                                                                    │
+        // │ Review the identifier column formats below — the UUIDv7 primary    │
+        // │ key and the CHAR(36) `*_id` columns — and confirm they match your  │
+        // │ application's models. Changing an id format later means an extra   │
+        // │ migration, so make the decision now. Deleting these lines is your  │
+        // │ confirmation. (The guard is skipped under the test runner so it    │
+        // │ does not interfere with package or application test suites.)       │
+        // └───────────────────────────────────────────────────────────────────┘
+        if (! app()->runningUnitTests()) {
+            throw new RuntimeException(
+                'audit-log: review the identifier column formats in '
+                . basename(__FILE__) . ' (UUIDv7 primary key and CHAR(36) *_id columns), '
+                . 'then delete the SAFETY CHECK block to run this migration.'
+            );
+        }
+
         Schema::create($this->table(), function (Blueprint $table) {
-            $table->id();
+            // Identifier formats — decide before running `php artisan migrate`.
+            // -----------------------------------------------------------------
+            // `id` (primary key) defaults to UUIDv7: timestamp-ordered and the de
+            // facto standard identifier for logging/audit systems. The base model
+            // generates it in its `creating` hook. The polymorphic reference ids
+            // (`actor_id`, `parent_id`, `record_id`, `related_id`, `subject_id`,
+            // `tenant_id`) hold YOUR models' primary keys and default to CHAR(36)
+            // to fit a UUID or ULID. Change any of these to match your app (and
+            // update the model's `boot()` id generation if you change the primary
+            // key). Alternatives:
+            //   $table->id();                             // BIGINT auto-increment
+            //   $table->ulid('id')->primary();            // ULID (CHAR(26))
+            //   $table->unsignedBigInteger('record_id');  // BIGINT model keys
+            //   $table->string('record_id');              // custom / mixed / > 36 chars
+            // The `*_provider_id`, `*_reference_*`, `actor_session_id`, and job id
+            // columns stay VARCHAR — they hold arbitrary external identifiers, not
+            // model keys.
+            $table->uuid('id')->primary();
 
             // Event metadata
             $table->string('event_type')->nullable();
@@ -23,7 +58,7 @@ return new class extends Migration
 
             // Actor (encrypted columns use TEXT to fit the ciphertext)
             $table->text('actor_email')->nullable();
-            $table->string('actor_id')->nullable();
+            $table->char('actor_id', 36)->nullable(); // model-reference id (see "Identifier formats")
             $table->string('actor_ip_addr')->nullable();
             $table->text('actor_name')->nullable();
             $table->string('actor_provider_id')->nullable();
@@ -43,7 +78,7 @@ return new class extends Migration
             $table->unsignedInteger('event_ms_per_record')->nullable();
 
             // Parent (many-to-many relationship events)
-            $table->string('parent_id')->nullable();
+            $table->char('parent_id', 36)->nullable(); // model-reference id (see "Identifier formats")
             $table->string('parent_model')->nullable();
             $table->string('parent_type')->nullable();
             $table->string('parent_provider_id')->nullable();
@@ -51,7 +86,7 @@ return new class extends Migration
             $table->text('parent_reference_value')->nullable(); // encrypted
 
             // Record (affected model)
-            $table->string('record_id')->nullable();
+            $table->char('record_id', 36)->nullable(); // model-reference id (see "Identifier formats")
             $table->string('record_model')->nullable();
             $table->string('record_type')->nullable();
             $table->string('record_provider_id')->nullable();
@@ -59,17 +94,17 @@ return new class extends Migration
             $table->text('record_reference_value')->nullable(); // encrypted
 
             // Related account
-            $table->string('related_id')->nullable();
+            $table->char('related_id', 36)->nullable(); // model-reference id (see "Identifier formats")
             $table->string('related_model')->nullable();
             $table->string('related_type')->nullable();
 
             // Subject account
-            $table->string('subject_id')->nullable();
+            $table->char('subject_id', 36)->nullable(); // model-reference id (see "Identifier formats")
             $table->string('subject_model')->nullable();
             $table->string('subject_type')->nullable();
 
             // Tenant (top-level organization)
-            $table->string('tenant_id')->nullable();
+            $table->char('tenant_id', 36)->nullable(); // model-reference id (see "Identifier formats")
             $table->string('tenant_model')->nullable();
             $table->string('tenant_type')->nullable();
 
@@ -89,8 +124,32 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index('event_type');
-            $table->index(['record_type', 'record_id']);
+
+            // Actor: a standalone `actor_id` for "all events by this account",
+            // plus `(actor_type, actor_id)` for morph resolution and for filtering
+            // by actor class (the compound's leftmost prefix serves `actor_type`).
             $table->index('actor_id');
+            $table->index(['actor_type', 'actor_id']);
+
+            // The snake_case `*_type` columns are indexed with their `*_id` so they
+            // can be filtered efficiently as plain strings (API queries, exports,
+            // SIEM lookups) — both "history of a specific record" (`type` + `id`)
+            // and bare `*_type` filtering via the compound's leftmost prefix — with
+            // no need for the fully-qualified `*_model` class name.
+            $table->index(['record_type', 'record_id']);
+            $table->index(['parent_type', 'parent_id']);
+            $table->index(['related_type', 'related_id']);
+            $table->index(['subject_type', 'subject_id']);
+            $table->index(['tenant_type', 'tenant_id']);
+
+            // The `*_model` (fully-qualified class name) columns are indexed with
+            // their `*_id` because the Eloquent `morphTo` relationships and
+            // `whereMorphedTo()` resolve on `*_model` + `*_id`.
+            $table->index(['record_model', 'record_id']);
+            $table->index(['parent_model', 'parent_id']);
+            $table->index(['related_model', 'related_id']);
+            $table->index(['subject_model', 'subject_id']);
+            $table->index(['tenant_model', 'tenant_id']);
         });
     }
 

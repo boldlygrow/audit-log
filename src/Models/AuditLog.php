@@ -46,7 +46,6 @@ use Illuminate\Support\Str;
  * model in the consuming application (including a custom module), so the
  * `subject()` relationship is not constrained to a single class.
  *
- * @property int                       $id
  * ## Immutability
  *
  * Via the {@see ImmutableRecords} trait, updates and permanent deletes are gated
@@ -55,6 +54,7 @@ use Illuminate\Support\Str;
  * Soft deletes are always allowed, and every mutation (or attempt, when allowed)
  * is itself recorded as a new audit entry.
  *
+ * @property string                    $id
  * @property string|null               $event_type
  * @property string|null               $level
  * @property string|null               $message
@@ -123,6 +123,41 @@ class AuditLog extends Model
      */
     protected $guarded = [];
 
+    /**
+     * Boot the model and assign a UUIDv7 primary key on creation.
+     *
+     * UUIDv7 is timestamp-ordered, which keeps inserts index-friendly and is the
+     * de facto standard identifier format for logging/audit systems. An id that is
+     * already set (for example in a seeder or import) is left untouched. If you
+     * switch the `id` column to a different format in the migration (bigint, ULID,
+     * etc.), override this on a model that extends the base.
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->id)) {
+                $model->id = (string) Str::uuid7();
+            }
+        });
+    }
+
+    /**
+     * The primary key is not auto-incrementing.
+     */
+    public function getIncrementing(): bool
+    {
+        return false;
+    }
+
+    /**
+     * The primary key is a string (UUIDv7).
+     */
+    public function getKeyType(): string
+    {
+        return 'string';
+    }
 
     /**
      * Save the model, wrapping an update in a transaction.

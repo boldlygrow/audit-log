@@ -165,3 +165,17 @@ describe('persisted columns', function () {
             ->and($log->occurred_at->format('Y-m-d'))->toBe('2024-03-02');
     });
 });
+
+describe('primary key', function () {
+    it('generates a UUIDv7 string primary key', function () {
+        AuditLog::create(...auditArgs(['record_id' => '1', 'database' => true]));
+
+        $log = AuditLogModel::firstOrFail();
+
+        // A canonical UUID with version nibble 7.
+        expect($log->getKeyName())->toBe('id')
+            ->and($log->getKeyType())->toBe('string')
+            ->and($log->getIncrementing())->toBeFalse()
+            ->and($log->id)->toMatch('/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/');
+    });
+});
