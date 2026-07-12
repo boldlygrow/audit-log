@@ -32,6 +32,8 @@ Each framework section uses three columns:
 - **Affected-resource linkage** — `record_*`, `parent_*`, `related_*`, `subject_*`, and `tenant_*` fields tie an event to the objects and accounts it affected. See [Model References](README.md#model-references-and-automatic-types).
 - **Execution context for automation** — `job_*` fields for background jobs, batches, and pipelines.
 - **Optional durable persistence** — write events to a queryable `audit_logs` table for perpetual, SQL-searchable storage. See [Database Persistence](README.md#database-persistence).
+- **Application-layer immutability** — persisted records are immutable by default; updates and permanent deletes are blocked, and every mutation (or attempt) is itself recorded and attributed. See [Immutability](README.md#immutability) and [Record Mutation & Log/Database Atomicity](#record-mutation--logdatabase-atomicity).
+- **Encryption at rest for sensitive fields** — PII and before/after value columns are stored encrypted in the database (and remain searchable via dedicated scopes). See [Encryption at Rest](README.md#encryption-at-rest).
 - **Extensibility for org-specific evidence** — [custom fields](README.md#adding-custom-fields) let you persist tenant/organization/workspace identifiers as first-class, indexable columns.
 
 ### What remains your responsibility
@@ -40,7 +42,7 @@ Logging frameworks universally require more than *generating* records. The follo
 
 | Responsibility | Why the package does not cover it | Representative controls |
 |----------------|-----------------------------------|-------------------------|
-| **Protecting log integrity** (tamper-evidence, append-only/WORM, hashing/signing) | Records written to the log channel or database can be modified or deleted by anyone with access; the shipped model uses reversible soft deletes. The package does not hash, sign, or lock records. | NIST AU-9, 800-171 3.3.8, ISO A.8.15, CIS 8.3, CISA 2.U |
+| **Protecting log integrity** (tamper-evidence, append-only/WORM, hashing/signing) | Records are [immutable by default](README.md#immutability) at the application layer — updates and permanent deletes are blocked, soft deletes are always recorded — but this is ORM-enforced, not cryptographic: the package does not hash, sign, or WORM-lock records, and anyone with direct database or log-channel access can still alter them. | NIST AU-9, 800-171 3.3.8, ISO A.8.15, CIS 8.3, CISA 2.U |
 | **Access control to audit records** | The package writes records; it does not restrict who can read or manage them. | NIST AU-9/AC-6(9), 800-171 3.3.9 |
 | **Retention scheduling & enforcement** | Database rows are stored indefinitely (no auto-purge), and log-channel retention is configured outside this package. There is no built-in retention timer or legal-hold. | NIST AU-11, ISO A.8.10, 800-171 3.3.1 |
 | **Review, analysis, alerting & monitoring (SIEM)** | The package generates records; it does not review them, detect anomalies, or alert. | NIST AU-6/SI-4, SOC 2 CC7.2, CIS 8.11, 800-171 3.3.3/3.3.5 |
@@ -93,7 +95,7 @@ SOC 1 evaluates entity-defined control objectives relevant to financial reportin
 | **A.8.16 Monitoring activities** | Structured records suitable for monitoring/anomaly detection | Perform the monitoring and analysis |
 | **A.8.17 Clock synchronization** | Consistent ISO 8601 (Zulu) timestamps on each record | Synchronize system clocks (NTP) |
 | **A.5.28 Collection of evidence** | Durable, attributable records usable as evidence | Preserve chain of custody and integrity |
-| **A.8.10 Information deletion** | Persistence uses reversible soft deletes (records are not silently hard-deleted) | Implement retention/secure-deletion policy |
+| **A.8.10 Information deletion** | Immutable by default — permanent deletion (`forceDelete`) is blocked and soft deletes are recorded and reversible, so records are not silently hard-deleted (see [Immutability](README.md#immutability)) | Implement retention/secure-deletion policy |
 
 ### NIST SP 800-53 Rev 5 (AU — Audit & Accountability, and related)
 
@@ -103,7 +105,7 @@ SOC 1 evaluates entity-defined control objectives relevant to financial reportin
 | **AU-3 Content of Audit Records** | Captures type/when/where/source/outcome/identity — see [content mapping](#audit-record-content-mapping) | Ensure each event supplies the fields |
 | **AU-3(1) Additional Audit Information** | Affected-resource, subject, tenant, and before/after fields | — |
 | **AU-8 Time Stamps** | ISO 8601 (Zulu) timestamps per record | System clock synchronization |
-| **AU-10 Non-repudiation** *(partial)* | Binds actions to actor identity + session | Add integrity protection (signing) for strong non-repudiation |
+| **AU-10 Non-repudiation** *(partial)* | Binds actions to actor identity + session; records are immutable by default and every mutation attempt is itself logged and attributed | Add cryptographic integrity (signing) for strong non-repudiation |
 | **AU-12 Audit Record Generation** | Generates records on demand across the application | Enable at all required components |
 | **AC-6(9) Log Use of Privileged Functions** | Attributable records for privileged actions when instrumented | Instrument privileged operations |
 | **CM-5(1) / CM-3 Configuration change logging** | Change events with actor + before/after values | Wire into configuration/change flows |

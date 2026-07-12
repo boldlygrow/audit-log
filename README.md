@@ -4,9 +4,9 @@
 
 ## Overview
 
-The Audit Log package is an open source [Composer](https://getcomposer.org/) package for use in Laravel applications that is used by other [Boldly Grow](https://github.com/boldlygrow) packages to provide a consistent log syntax and optional database persistence for audit events. Although this is purpose built for our packages, you are welcome to adopt this for your own standardized logging.
+The Audit Log package is an open source [Composer](https://getcomposer.org/) package for use in Laravel applications that is used by other [Boldly Grow](https://github.com/boldlygrow) packages and ventures including [Provisionr](https://provisionr.io) to provide a consistent log syntax and optional database persistence for audit events. Although this is purpose built for our packages, you are welcome to adopt this for your own standardized logging.
 
-This is maintained by the open source community and is not maintained by any company. Please use at your own risk and create merge requests for any bugs that you encounter.
+Please use at your own risk and create pull requests for any bugs that you encounter.
 
 ### Problem Statement
 
@@ -16,14 +16,67 @@ The `BoldlyGrow\AuditLog\AuditLog::create()` method provides a pre-defined set o
 
 Sometimes you need to get a formatted array that can be added to a changelog or actioned upon programmatically instead of trying to tail a log file. An array is returned for each log entry that is created.
 
-### What You Get
+### Feature Comparison
 
-- **Standardized log syntax** — a predefined set of context keys for consistent indexing and searchability in external logging platforms.
-- **A returned array** — every call returns a formatted, filterable array you can use as a data transfer object, append to a changelog, or action programmatically.
-- **Optional database persistence** — write events to a queryable `audit_logs` table for perpetual, SQL-searchable audit storage in addition to (or instead of) the system log. See [Database Persistence](#database-persistence).
-- **A configurable, extensible schema** — actor attribute mapping, model-to-type auto-calculation, request-origin tracking, and custom columns, so the package adapts to your models and conventions without being forked.
+How this package compares to Laravel's built-in logging and [Spatie Activity Log](https://spatie.be/docs/laravel-activitylog). Each capability links to the section that documents it.
 
-For how these capabilities map to common compliance frameworks (SOC 1/2, ISO 27001, NIST 800-53/63/171, CISA, CIS) and the shared-responsibility boundaries, see [COMPLIANCE.md](COMPLIANCE.md).
+**Legend:** ✅ built-in · ◐ partial or manual · ❌ not provided
+
+| Capability | Laravel Logs | Spatie Activity Log | BoldlyGrow Audit Log |
+|------------|:---:|:---:|:---:|
+| **Records & storage** | | | |
+| [Durable database table](#database-persistence) | ❌ | ✅ | ✅ |
+| [System log-channel output](#basic-usage) | ✅ | ❌ | ✅ |
+| [Configurable table & model](#database-persistence) | ❌ | ✅ | ✅ |
+| [UUIDv7 primary keys](#publish-the-config-and-migration) | ❌ | ❌ | ✅ |
+| [Soft deletes (recoverable)](#immutability) | ❌ | ❌ | ✅ |
+| [Indexed for query performance](#simple-string-searches-with-_type) | ❌ | ◐ | ✅ |
+| **Attribution** | | | |
+| [Actor identity / causer](#actor-metadata) | ❌ | ✅ | ✅ |
+| [Session, IP & request source](#actor-metadata) | ❌ | ❌ | ✅ |
+| [Configurable actor attribute mapping](#mapping-custom-user-attributes) | ❌ | ◐ | ✅ |
+| [Proxy / CDN IP resolution](#actor-ip-address-behind-a-proxy-or-cdn) | ❌ | ❌ | ✅ |
+| **Event content** | | | |
+| [Standardized structured schema](#log-parameter-definitions) | ❌ | ◐ | ✅ |
+| [Event classification (type / level / outcome)](#comprehensive-usage) | ◐ | ◐ | ✅ |
+| [State change (old / new values)](#log-parameter-definitions) | ❌ | ✅ | ✅ |
+| [Affected-resource linkage](#model-references-and-automatic-types) | ❌ | ◐ | ✅ |
+| [Model → snake_case type + FQCN](#model-references-and-automatic-types) | ❌ | ◐ | ✅ |
+| [Background job / batch / pipeline metadata](#background-job-log-entry) | ❌ | ◐ | ✅ |
+| **Automatic capture** | | | |
+| Automatic model-change logging (trait) | ❌ | ✅ | ❌ |
+| [Runs without a database (log-only)](#skipping-log-creation) | ✅ | ❌ | ◐ |
+| **Security & compliance** | | | |
+| [Encryption at rest](#encryption-at-rest) | ❌ | ❌ | ✅ |
+| [Search encrypted fields](#searching-encrypted-fields) | ❌ | ❌ | ✅ |
+| [Immutable records (block update / destroy)](#immutability) | ❌ | ❌ | ✅ |
+| [Tamper-evident mutation recording](#immutability) | ❌ | ❌ | ✅ |
+| [Compliance control mapping](COMPLIANCE.md) | ❌ | ❌ | ✅ |
+| **Querying & output** | | | |
+| [Date-range scopes](#date-range-scopes) | ❌ | ◐ | ✅ |
+| [Relationship querying](#querying-by-relationship) | ❌ | ◐ | ✅ |
+| [SIEM-friendly string-type search](#simple-string-searches-with-_type) | ❌ | ◐ | ✅ |
+| [Custom indexable columns](#adding-custom-fields) | ❌ | ◐ | ✅ |
+| [Formatted response array / DTO](#response-schema) | ❌ | ❌ | ✅ |
+| [Configurable response schemas](#standardized-configurations-for-response-array) | ❌ | ❌ | ✅ |
+| [Copyable API endpoint examples](#example-api-endpoints) | ❌ | ❌ | ✅ |
+
+The two competitor-win rows are deliberate: Spatie Activity Log logs model changes **automatically** via a trait (this package favors explicit, intentional `AuditLog::create()` events), and Laravel's channel logging runs with **no database** (persistence here is optional — see [Skipping Log Creation](#skipping-log-creation)).
+
+### Audit Record Completeness & Scope
+
+A single event can capture every element that audit-record standards — NIST 800-53 **AU-3**, CIS **8.5**, ISO 27001 **A.8.15** — expect a record to contain:
+
+| Required element | Package field(s) |
+|------------------|------------------|
+| What happened | `event_type`, `level`, `message`, `method` |
+| When | `occurred_at`, `datetime` (ISO 8601 Zulu), `created_at` |
+| Where / source | `actor_source`, `actor_ip_addr`, `actor_session_id`, `method` |
+| Outcome | `event_type` result segment (e.g. `…success`, `…error.validation`), `level` |
+| Who | `actor_id`, `actor_email`, `actor_name`, `actor_username`, `actor_provider_id`, `actor_type` |
+| Affected resources + before/after | `record_*`, `parent_*`, `related_*`, `subject_*`, `tenant_*`, `attribute_value_old`, `attribute_value_new` |
+
+**Scope — what this package does _not_ do.** It generates and stores records; it is not a full audit-management platform. You remain responsible for **retention scheduling**, **access control to the logs**, **review / alerting (SIEM)**, **time synchronization**, and **cryptographic tamper-evidence (hashing / signing)**. For how the package's capabilities map to compliance frameworks (SOC 1/2, ISO 27001, NIST 800-53/63/171, CISA, CIS) and the full shared-responsibility boundaries, see [COMPLIANCE.md](COMPLIANCE.md).
 
 ### Issue Tracking and Bug Reports
 
@@ -622,7 +675,27 @@ AuditLog::create(
 );
 ```
 
-The legacy string parameters (`record_type: 'App\\Models\\Okta\\User'`) still work for backwards compatibility. When both are provided, the `*_model` value takes precedence.
+The legacy string parameters (`record_type: 'App\\Models\\Okta\\User'`) still work for backwards compatibility. When both are provided, an explicit `*_type` overrides the value calculated from `*_model` — so you can point the `*_model` column at a class while logging a custom `*_type` key.
+
+### Simple String Searches with `*_type`
+
+The [`whereMorphedTo()` / `whereHasMorph()` relationship queries](#querying-by-relationship) operate on the FQCN `*_model` columns (and `actor_type`) — pass a **class or model instance**, not the snake_case string.
+
+For everything else, prefer the paired `*_type` column. It stores a stable, human-friendly snake_case string (`okta_user`) rather than a PHP class name (`App\Models\Okta\User`), so it is a plain column you can match with `where()` or raw SQL:
+
+```php
+$events = AuditLog::where('record_type', 'okta_user')->get();
+```
+
+This is the better fit whenever the consumer is not PHP:
+
+- **API filters** — clients pass `record_type=okta_user`, not a fully-qualified class string. The [example API endpoints](#example-api-endpoints) expose exactly this.
+- **CSV / JSON exports and SIEM ingestion** — downstream tools search and correlate on `okta_user` without needing to know your namespace, and the value stays stable even if the underlying model class is later moved or renamed.
+- **Records whose model no longer exists** — the string is preserved regardless of whether the class is still resolvable.
+
+> `actor_type` is the exception: it stores the FQCN (there is no `actor_model` column), so match it with the class string (`where('actor_type', User::class)`).
+
+**Indexing.** Every `*_type` column is indexed by the shipped migration as a compound `(*_type, *_id)` index (for `actor`, `record`, `parent`, `related`, `subject`, and `tenant`). A bare `where('record_type', ...)` still uses the index via its leftmost prefix, and a `where('record_type', ...)->where('record_id', ...)` "history of one record" lookup is fully covered — no extra work on your part. The `(*_model, *_id)` columns are indexed too, so the [relationship queries](#querying-by-relationship) (`whereMorphedTo()` / morphTo eager-loading) are index-backed as well.
 
 ### Database Persistence
 
@@ -714,6 +787,186 @@ $log->withJustification('Legal hold released, ticket #4567')->delete();
 ```
 
 > Because these controls are enforced on the model, they apply to any model that extends `BoldlyGrow\AuditLog\Models\AuditLog`. Turning a control off is a deliberate, auditable act — the change from `true` to `false` is itself the thing your compliance process should gate.
+
+### Searching Encrypted Fields
+
+The [encrypted columns](#encryption-at-rest) — `actor_email`, `actor_name`, `actor_username`, `attribute_value_old`, `attribute_value_new`, `parent_reference_value`, `record_reference_value`, and the `metadata` array — are stored as ciphertext. Laravel's encryption is **non-deterministic** (encrypting the same value twice produces different ciphertext), so a normal SQL query can never match them:
+
+```php
+// Never matches — the column holds ciphertext, not the plaintext
+AuditLog::where('actor_email', 'jsmith@acme.com')->get();
+```
+
+The base model uses the `BoldlyGrow\AuditLog\Traits\ModelEncryptedLookup` trait, which adds query scopes that decrypt the column in PHP, build a cached `id => value` lookup index, and constrain the query to the matching primary keys.
+
+Throughout this section, `AuditLog` refers to **your Eloquent model** — either the base `BoldlyGrow\AuditLog\Models\AuditLog` or your own `App\Models\AuditLog` that extends it. Every scope returns an Eloquent query builder, so you can chain `->get()`, `->first()`, `->count()`, `->paginate()`, `->orderBy()`, and additional `->where()` constraints just like a normal query.
+
+#### Available Scopes
+
+| Scope | Description | Example |
+|-------|-------------|---------|
+| `whereEncryptedStringExact($column, $value)` | Exact, case-insensitive match on an encrypted string column | [Example](#exact-string-match) |
+| `whereEncryptedStringPartial($column, $value)` | Case-insensitive substring match anywhere in the value | [Example](#partial-string-match) |
+| `whereEncryptedStringStartsWith($column, $value)` | Value begins with the term | [Example](#starts-with-and-ends-with) |
+| `whereEncryptedStringEndsWith($column, $value)` | Value ends with the term | [Example](#starts-with-and-ends-with) |
+| `whereEncryptedArraySearch($column, $search)` | Substring match across every key and value of an encrypted array column | [Example](#search-the-entire-array) |
+| `whereEncryptedArrayExact($column, $key, $value)` | Exact match for a specific array key | [Example](#match-a-specific-array-key) |
+| `whereEncryptedArrayPartial($column, $key, $value)` | Substring match for a specific array key | [Example](#match-a-specific-array-key) |
+| `whereEncryptedArrayStartsWith($column, $key, $value)` | A specific array key begins with the term | [Example](#match-a-specific-array-key) |
+| `whereEncryptedArrayEndsWith($column, $key, $value)` | A specific array key ends with the term | [Example](#match-a-specific-array-key) |
+| `encryptedArrayKeys($column)` (static) | List the distinct keys present in an encrypted array column | [Example](#listing-array-keys) |
+
+Every scope except `whereEncryptedArraySearch` accepts a final `bool $cache = true` argument — pass `false` to rebuild the index from fresh data. See [Caching and Fresh Data](#caching-and-fresh-data).
+
+#### String Column Searches
+
+#### Exact String Match
+
+`whereEncryptedStringExact()` returns records whose decrypted value equals your term. Matching is **case-insensitive**.
+
+```php
+use App\Models\AuditLog;
+
+// Every event attributed to a specific email address
+$events = AuditLog::whereEncryptedStringExact('actor_email', 'jsmith@acme.com')->get();
+
+// Case does not matter — this also matches "JSmith@Acme.com"
+$event = AuditLog::whereEncryptedStringExact('actor_name', 'john smith')->first();
+```
+
+This is the encrypted-column equivalent of:
+
+```sql
+SELECT * FROM audit_logs WHERE LOWER(actor_email) = LOWER('jsmith@acme.com');
+```
+
+#### Partial String Match
+
+`whereEncryptedStringPartial()` returns records where the term appears anywhere in the decrypted value (case-insensitive substring).
+
+```php
+// Every actor whose email is on the acme.com domain
+$events = AuditLog::whereEncryptedStringPartial('actor_email', 'acme.com')->get();
+
+// Every event whose old value contained "pending"
+$events = AuditLog::whereEncryptedStringPartial('attribute_value_old', 'pending')->get();
+```
+
+#### Starts-With and Ends-With
+
+`whereEncryptedStringStartsWith()` and `whereEncryptedStringEndsWith()` anchor the match to the beginning or end of the value.
+
+```php
+// Emails that start with "jsmith"
+$events = AuditLog::whereEncryptedStringStartsWith('actor_email', 'jsmith')->get();
+
+// Emails that end with the acme.com domain
+$events = AuditLog::whereEncryptedStringEndsWith('actor_email', 'acme.com')->get();
+```
+
+> Matching is **case-insensitive**, like the other scopes. See [Case Sensitivity and Normalization](#case-sensitivity-and-normalization).
+
+#### Array Column Searches
+
+The `metadata` column is an encrypted array (`encrypted:array`). These scopes search inside it. The examples assume rows created with metadata like:
+
+```php
+AuditLog::create(
+    // ...
+    database: true,
+    metadata: [
+        'approved_by' => 'John Smith',
+        'ticket' => 'CHG-10482',
+    ],
+);
+```
+
+#### Search the Entire Array
+
+`whereEncryptedArraySearch()` performs a case-insensitive substring search across **all keys and values** of the array.
+
+```php
+// Any metadata that mentions "acme" in any key or value
+$events = AuditLog::whereEncryptedArraySearch('metadata', 'acme')->get();
+```
+
+> `whereEncryptedArraySearch()` always reads live data and does not take a `cache` argument.
+
+#### Match a Specific Array Key
+
+The keyed scopes target one array key:
+
+```php
+// Exact (case-insensitive) match on metadata['approved_by']
+$events = AuditLog::whereEncryptedArrayExact('metadata', 'approved_by', 'John Smith')->get();
+
+// Partial match on metadata['approved_by']
+$events = AuditLog::whereEncryptedArrayPartial('metadata', 'approved_by', 'john')->get();
+
+// Prefix / suffix match on metadata['ticket']
+$events = AuditLog::whereEncryptedArrayStartsWith('metadata', 'ticket', 'chg-')->get();
+$events = AuditLog::whereEncryptedArrayEndsWith('metadata', 'ticket', '10482')->get();
+```
+
+#### Listing Array Keys
+
+`encryptedArrayKeys()` (a static method, not a scope) returns the distinct set of keys present across an encrypted array column — useful for building filters or discovering what has been stored.
+
+```php
+$keys = AuditLog::encryptedArrayKeys('metadata');
+
+// [
+//     0 => 'approved_by',
+//     1 => 'ticket',
+//     2 => 'source_ip',
+// ]
+```
+
+#### Chaining with Other Constraints
+
+Because the scopes return a query builder, combine them with ordinary constraints, ordering, and pagination:
+
+```php
+// Failed login events for a given user, newest first, paginated
+$events = AuditLog::whereEncryptedStringExact('actor_email', 'jsmith@acme.com')
+    ->where('event_type', 'okta.auth.login.error.invalid')
+    ->orderByDesc('occurred_at')
+    ->paginate(25);
+
+// Count how many events referenced a value
+$count = AuditLog::whereEncryptedStringPartial('record_reference_value', 'acme corp')->count();
+
+// Include soft-deleted rows in the results
+$events = AuditLog::withTrashed()
+    ->whereEncryptedStringExact('actor_username', 'jsmith')
+    ->get();
+```
+
+> The lookup index is built including soft-deleted rows, but the returned query still applies the model's soft-delete scope. Chain `->withTrashed()` (as above) if you want trashed records in the results.
+
+#### Case Sensitivity and Normalization
+
+All of the scopes are **case-insensitive**. The lookup index normalizes every stored value to lowercase, and each scope lowercases your search term before comparing, so `John Smith`, `john smith`, and `JOHN SMITH` all match the same records.
+
+#### Caching and Fresh Data
+
+Building the lookup index decrypts every row, so the result is cached (the cache payload is itself encrypted) for two minutes. Repeated searches within that window are served from cache.
+
+Pass `cache: false` as the final argument to bypass and rebuild the index — use this immediately after writing rows you need to search:
+
+```php
+// Force a fresh index (e.g., right after creating new audit rows)
+$events = AuditLog::whereEncryptedStringExact('actor_email', 'jsmith@acme.com', cache: false)->get();
+
+$events = AuditLog::whereEncryptedArrayExact('metadata', 'approved_by', 'John Smith', cache: false)->get();
+```
+
+#### Performance Considerations
+
+These scopes trade database-side filtering for the ability to search encrypted data:
+
+- On a cache miss, the entire column is decrypted in memory to build the `id => value` index, so cost grows with table size. The index is built over the whole table regardless of any constraints you chain afterward (those constrain the returned builder, not the index). This suits moderate tables and background jobs.
+- Prefer non-encrypted, indexed columns (`event_type`, `record_type` / `record_id`, `actor_id`, `occurred_at`) for high-volume filtering, and use encrypted search to locate specific actors or values.
 
 ### Date Range Scopes
 
@@ -818,26 +1071,6 @@ $events = AuditLog::whereHasMorph('subject', [User::class], function ($query) {
 })->get();
 ```
 
-#### Simple String Searches with `*_type`
-
-The `whereMorphedTo()` / `whereHasMorph()` methods above operate on the FQCN `*_model` columns (and `actor_type`) — pass a **class or model instance**, not the snake_case string.
-
-For everything else, prefer the paired `*_type` column. It stores a stable, human-friendly snake_case string (`okta_user`) rather than a PHP class name (`App\Models\Okta\User`), so it is a plain column you can match with `where()` or raw SQL:
-
-```php
-$events = AuditLog::where('record_type', 'okta_user')->get();
-```
-
-This is the better fit whenever the consumer is not PHP:
-
-- **API filters** — clients pass `record_type=okta_user`, not a fully-qualified class string. The [example API endpoints](#example-api-endpoints) expose exactly this.
-- **CSV / JSON exports and SIEM ingestion** — downstream tools search and correlate on `okta_user` without needing to know your namespace, and the value stays stable even if the underlying model class is later moved or renamed.
-- **Records whose model no longer exists** — the string is preserved regardless of whether the class is still resolvable.
-
-> `actor_type` is the exception: it stores the FQCN (there is no `actor_model` column), so match it with the class string (`where('actor_type', User::class)`).
-
-**Indexing.** Every `*_type` column is indexed by the shipped migration as a compound `(*_type, *_id)` index (for `actor`, `record`, `parent`, `related`, `subject`, and `tenant`). A bare `where('record_type', ...)` still uses the index via its leftmost prefix, and a `where('record_type', ...)->where('record_id', ...)` "history of one record" lookup is fully covered — no extra work on your part. The `(*_model, *_id)` columns are indexed too, so the [relationship queries](#querying-by-relationship) above (`whereMorphedTo()` / morphTo eager-loading) are index-backed as well.
-
 ### Example API Endpoints
 
 The package ships copyable reference implementations of a read-only `list` + `describe` audit log API in the [`examples/`](examples) directory — in two flavors:
@@ -911,186 +1144,6 @@ The parsed and formatted schema is always returned as an array.
 | `true`  | `true`        | Log entry is created. Database row is persisted.                   |
 | `false` | `true`        | No log is created. Database row is persisted.                      |
 | `false` | `false`       | No log or database row is created. Used for schema parsing.        |
-
-## Searching Encrypted Fields
-
-The [encrypted columns](#encryption-at-rest) — `actor_email`, `actor_name`, `actor_username`, `attribute_value_old`, `attribute_value_new`, `parent_reference_value`, `record_reference_value`, and the `metadata` array — are stored as ciphertext. Laravel's encryption is **non-deterministic** (encrypting the same value twice produces different ciphertext), so a normal SQL query can never match them:
-
-```php
-// Never matches — the column holds ciphertext, not the plaintext
-AuditLog::where('actor_email', 'jsmith@acme.com')->get();
-```
-
-The base model uses the `BoldlyGrow\AuditLog\Traits\ModelEncryptedLookup` trait, which adds query scopes that decrypt the column in PHP, build a cached `id => value` lookup index, and constrain the query to the matching primary keys.
-
-Throughout this section, `AuditLog` refers to **your Eloquent model** — either the base `BoldlyGrow\AuditLog\Models\AuditLog` or your own `App\Models\AuditLog` that extends it. Every scope returns an Eloquent query builder, so you can chain `->get()`, `->first()`, `->count()`, `->paginate()`, `->orderBy()`, and additional `->where()` constraints just like a normal query.
-
-### Available Scopes
-
-| Scope | Description | Example |
-|-------|-------------|---------|
-| `whereEncryptedStringExact($column, $value)` | Exact, case-insensitive match on an encrypted string column | [Example](#exact-string-match) |
-| `whereEncryptedStringPartial($column, $value)` | Case-insensitive substring match anywhere in the value | [Example](#partial-string-match) |
-| `whereEncryptedStringStartsWith($column, $value)` | Value begins with the term | [Example](#starts-with-and-ends-with) |
-| `whereEncryptedStringEndsWith($column, $value)` | Value ends with the term | [Example](#starts-with-and-ends-with) |
-| `whereEncryptedArraySearch($column, $search)` | Substring match across every key and value of an encrypted array column | [Example](#search-the-entire-array) |
-| `whereEncryptedArrayExact($column, $key, $value)` | Exact match for a specific array key | [Example](#match-a-specific-array-key) |
-| `whereEncryptedArrayPartial($column, $key, $value)` | Substring match for a specific array key | [Example](#match-a-specific-array-key) |
-| `whereEncryptedArrayStartsWith($column, $key, $value)` | A specific array key begins with the term | [Example](#match-a-specific-array-key) |
-| `whereEncryptedArrayEndsWith($column, $key, $value)` | A specific array key ends with the term | [Example](#match-a-specific-array-key) |
-| `encryptedArrayKeys($column)` (static) | List the distinct keys present in an encrypted array column | [Example](#listing-array-keys) |
-
-Every scope except `whereEncryptedArraySearch` accepts a final `bool $cache = true` argument — pass `false` to rebuild the index from fresh data. See [Caching and Fresh Data](#caching-and-fresh-data).
-
-### String Column Searches
-
-#### Exact String Match
-
-`whereEncryptedStringExact()` returns records whose decrypted value equals your term. Matching is **case-insensitive**.
-
-```php
-use App\Models\AuditLog;
-
-// Every event attributed to a specific email address
-$events = AuditLog::whereEncryptedStringExact('actor_email', 'jsmith@acme.com')->get();
-
-// Case does not matter — this also matches "JSmith@Acme.com"
-$event = AuditLog::whereEncryptedStringExact('actor_name', 'john smith')->first();
-```
-
-This is the encrypted-column equivalent of:
-
-```sql
-SELECT * FROM audit_logs WHERE LOWER(actor_email) = LOWER('jsmith@acme.com');
-```
-
-#### Partial String Match
-
-`whereEncryptedStringPartial()` returns records where the term appears anywhere in the decrypted value (case-insensitive substring).
-
-```php
-// Every actor whose email is on the acme.com domain
-$events = AuditLog::whereEncryptedStringPartial('actor_email', 'acme.com')->get();
-
-// Every event whose old value contained "pending"
-$events = AuditLog::whereEncryptedStringPartial('attribute_value_old', 'pending')->get();
-```
-
-#### Starts-With and Ends-With
-
-`whereEncryptedStringStartsWith()` and `whereEncryptedStringEndsWith()` anchor the match to the beginning or end of the value.
-
-```php
-// Emails that start with "jsmith"
-$events = AuditLog::whereEncryptedStringStartsWith('actor_email', 'jsmith')->get();
-
-// Emails that end with the acme.com domain
-$events = AuditLog::whereEncryptedStringEndsWith('actor_email', 'acme.com')->get();
-```
-
-> Matching is **case-insensitive**, like the other scopes. See [Case Sensitivity and Normalization](#case-sensitivity-and-normalization).
-
-### Array Column Searches
-
-The `metadata` column is an encrypted array (`encrypted:array`). These scopes search inside it. The examples assume rows created with metadata like:
-
-```php
-AuditLog::create(
-    // ...
-    database: true,
-    metadata: [
-        'approved_by' => 'John Smith',
-        'ticket' => 'CHG-10482',
-    ],
-);
-```
-
-#### Search the Entire Array
-
-`whereEncryptedArraySearch()` performs a case-insensitive substring search across **all keys and values** of the array.
-
-```php
-// Any metadata that mentions "acme" in any key or value
-$events = AuditLog::whereEncryptedArraySearch('metadata', 'acme')->get();
-```
-
-> `whereEncryptedArraySearch()` always reads live data and does not take a `cache` argument.
-
-#### Match a Specific Array Key
-
-The keyed scopes target one array key:
-
-```php
-// Exact (case-insensitive) match on metadata['approved_by']
-$events = AuditLog::whereEncryptedArrayExact('metadata', 'approved_by', 'John Smith')->get();
-
-// Partial match on metadata['approved_by']
-$events = AuditLog::whereEncryptedArrayPartial('metadata', 'approved_by', 'john')->get();
-
-// Prefix / suffix match on metadata['ticket']
-$events = AuditLog::whereEncryptedArrayStartsWith('metadata', 'ticket', 'chg-')->get();
-$events = AuditLog::whereEncryptedArrayEndsWith('metadata', 'ticket', '10482')->get();
-```
-
-### Listing Array Keys
-
-`encryptedArrayKeys()` (a static method, not a scope) returns the distinct set of keys present across an encrypted array column — useful for building filters or discovering what has been stored.
-
-```php
-$keys = AuditLog::encryptedArrayKeys('metadata');
-
-// [
-//     0 => 'approved_by',
-//     1 => 'ticket',
-//     2 => 'source_ip',
-// ]
-```
-
-### Chaining with Other Constraints
-
-Because the scopes return a query builder, combine them with ordinary constraints, ordering, and pagination:
-
-```php
-// Failed login events for a given user, newest first, paginated
-$events = AuditLog::whereEncryptedStringExact('actor_email', 'jsmith@acme.com')
-    ->where('event_type', 'okta.auth.login.error.invalid')
-    ->orderByDesc('occurred_at')
-    ->paginate(25);
-
-// Count how many events referenced a value
-$count = AuditLog::whereEncryptedStringPartial('record_reference_value', 'acme corp')->count();
-
-// Include soft-deleted rows in the results
-$events = AuditLog::withTrashed()
-    ->whereEncryptedStringExact('actor_username', 'jsmith')
-    ->get();
-```
-
-> The lookup index is built including soft-deleted rows, but the returned query still applies the model's soft-delete scope. Chain `->withTrashed()` (as above) if you want trashed records in the results.
-
-### Case Sensitivity and Normalization
-
-All of the scopes are **case-insensitive**. The lookup index normalizes every stored value to lowercase, and each scope lowercases your search term before comparing, so `John Smith`, `john smith`, and `JOHN SMITH` all match the same records.
-
-### Caching and Fresh Data
-
-Building the lookup index decrypts every row, so the result is cached (the cache payload is itself encrypted) for two minutes. Repeated searches within that window are served from cache.
-
-Pass `cache: false` as the final argument to bypass and rebuild the index — use this immediately after writing rows you need to search:
-
-```php
-// Force a fresh index (e.g., right after creating new audit rows)
-$events = AuditLog::whereEncryptedStringExact('actor_email', 'jsmith@acme.com', cache: false)->get();
-
-$events = AuditLog::whereEncryptedArrayExact('metadata', 'approved_by', 'John Smith', cache: false)->get();
-```
-
-### Performance Considerations
-
-These scopes trade database-side filtering for the ability to search encrypted data:
-
-- On a cache miss, the entire column is decrypted in memory to build the `id => value` index, so cost grows with table size. The index is built over the whole table regardless of any constraints you chain afterward (those constrain the returned builder, not the index). This suits moderate tables and background jobs.
-- Prefer non-encrypted, indexed columns (`event_type`, `record_type` / `record_id`, `actor_id`, `occurred_at`) for high-volume filtering, and use encrypted search to locate specific actors or values.
 
 ## Response Schema
 
@@ -1337,7 +1390,7 @@ dd($result);
 
 ### Standardized Configurations for Response Array
 
-> Reminder: You need to [publish the configuration file](#publish-the-configuration-file) for it to appear in `config/audit-log.php` or it will use the default one in the `vendor/boldlygrow/audit-log` directory that cannot be modified.
+> Reminder: You need to [publish the configuration file](#publish-the-config-and-migration) for it to appear in `config/audit-log.php` or it will use the default one in the `vendor/boldlygrow/audit-log` directory that cannot be modified.
 
 It can be difficult to manage your simplified schemas throughout your code base.
 
