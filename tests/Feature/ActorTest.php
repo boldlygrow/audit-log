@@ -35,7 +35,8 @@ describe('actor metadata', function () {
             ->and($result['actor_name'])->toBe('Jane Doe')
             ->and($result['actor_username'])->toBe('jane')
             ->and($result['actor_provider_id'])->toBe('okta-123')
-            ->and($result['actor_type'])->toBe(TestActor::class);
+            ->and($result['actor_model'])->toBe(TestActor::class)
+            ->and($result['actor_type'])->toBe('test_actor');
     });
 
     it('falls back to full_name when name is absent', function () {
@@ -63,6 +64,7 @@ describe('actor metadata', function () {
 
         expect($result['actor_id'])->toBeNull()
             ->and($result['actor_email'])->toBeNull()
+            ->and($result['actor_model'])->toBeNull()
             ->and($result['actor_type'])->toBeNull()
             ->and($result['actor_source'])->toBeNull();
     });
@@ -72,6 +74,7 @@ describe('actor metadata', function () {
 
         expect($result['actor_id'])->toBeNull()
             ->and($result['actor_email'])->toBeNull()
+            ->and($result['actor_model'])->toBeNull()
             ->and($result['actor_type'])->toBeNull()
             ->and($result['actor_source'])->toBe('system');
     });

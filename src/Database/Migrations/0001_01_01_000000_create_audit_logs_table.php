@@ -60,6 +60,7 @@ return new class extends Migration
             $table->text('actor_email')->nullable();
             $table->char('actor_id', 36)->nullable(); // model-reference id (see "Identifier formats")
             $table->string('actor_ip_addr')->nullable();
+            $table->string('actor_model')->nullable();
             $table->text('actor_name')->nullable();
             $table->string('actor_provider_id')->nullable();
             $table->string('actor_session_id')->nullable();
@@ -126,10 +127,12 @@ return new class extends Migration
             $table->index('event_type');
 
             // Actor: a standalone `actor_id` for "all events by this account",
-            // plus `(actor_type, actor_id)` for morph resolution and for filtering
-            // by actor class (the compound's leftmost prefix serves `actor_type`).
+            // `(actor_type, actor_id)` for filtering by the snake_case actor class
+            // (the compound's leftmost prefix serves `actor_type`), and
+            // `(actor_model, actor_id)` for `morphTo`/`whereMorphedTo()` resolution.
             $table->index('actor_id');
             $table->index(['actor_type', 'actor_id']);
+            $table->index(['actor_model', 'actor_id']);
 
             // The snake_case `*_type` columns are indexed with their `*_id` so they
             // can be filtered efficiently as plain strings (API queries, exports,

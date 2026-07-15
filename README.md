@@ -310,9 +310,14 @@ AuditLog::create(
 <td>The origin of the request. Auto-detected when omitted, or pass <code>cli</code>/a custom value explicitly; see <a href="#actor-source">Actor Source</a>. Validated against <code>config('audit-log.actor.source.allowed')</code>.</td>
 </tr>
 <tr>
-<td>actor_type<br><code>string</code></td>
+<td>actor_model<br><code>string</code></td>
 <td>authenticated user model class</td>
 <td>The fully-qualified class name of the authenticated user model. Auto-populated; pass to override.</td>
+</tr>
+<tr>
+<td>actor_type<br><code>string</code></td>
+<td>snake_case of the user model class</td>
+<td>A human-friendly snake_case string derived from <code>actor_model</code> (ex. <code>user</code>). Auto-populated; pass to override.</td>
 </tr>
 <tr>
 <td>actor_username<br><code>string</code></td>
@@ -571,7 +576,8 @@ If your user model uses different column names (for example `work_email` or `dis
 | `actor_provider_id` | `Auth::user()->provider_id`                     | null                 |
 | `actor_session_id`  | `session()->getId()`                            | `session()->getId()` |
 | `actor_source`      | `system` / `api` / `web` (auto-detected)        | `system` / `api` / `web` |
-| `actor_type`        | `config('auth.providers.users.model')`          | null                 |
+| `actor_model`       | `Auth::user()::class` (FQCN)                     | null                 |
+| `actor_type`        | snake_case of `Auth::user()::class`             | null                 |
 | `actor_username`    | `Auth::user()->username`                        | null                 |
 
 #### Actor IP Address Behind a Proxy or CDN
@@ -614,6 +620,7 @@ AuditLog::create(
     actor_email: '{string}',
     actor_id: '{string}',
     actor_ip_addr: '{string}',
+    actor_model: '{string}',
     actor_name: '{string}',
     actor_provider_id: '{string}',
     actor_session_id: '{string}',
@@ -679,7 +686,7 @@ The legacy string parameters (`record_type: 'App\\Models\\Okta\\User'`) still wo
 
 ### Simple String Searches with `*_type`
 
-The [`whereMorphedTo()` / `whereHasMorph()` relationship queries](#querying-by-relationship) operate on the FQCN `*_model` columns (and `actor_type`) — pass a **class or model instance**, not the snake_case string.
+The [`whereMorphedTo()` / `whereHasMorph()` relationship queries](#querying-by-relationship) operate on the FQCN `*_model` columns — pass a **class or model instance**, not the snake_case string.
 
 For everything else, prefer the paired `*_type` column. It stores a stable, human-friendly snake_case string (`okta_user`) rather than a PHP class name (`App\Models\Okta\User`), so it is a plain column you can match with `where()` or raw SQL:
 
@@ -693,7 +700,7 @@ This is the better fit whenever the consumer is not PHP:
 - **CSV / JSON exports and SIEM ingestion** — downstream tools search and correlate on `okta_user` without needing to know your namespace, and the value stays stable even if the underlying model class is later moved or renamed.
 - **Records whose model no longer exists** — the string is preserved regardless of whether the class is still resolvable.
 
-> `actor_type` is the exception: it stores the FQCN (there is no `actor_model` column), so match it with the class string (`where('actor_type', User::class)`).
+> The `actor` relationship follows the same pattern: `actor_model` stores the FQCN (match it with the class string, `where('actor_model', User::class)`) and `actor_type` stores the snake_case string (`where('actor_type', 'user')`).
 
 **Indexing.** Every `*_type` column is indexed by the shipped migration as a compound `(*_type, *_id)` index (for `actor`, `record`, `parent`, `related`, `subject`, and `tenant`). A bare `where('record_type', ...)` still uses the index via its leftmost prefix, and a `where('record_type', ...)->where('record_id', ...)` "history of one record" lookup is fully covered — no extra work on your part. The `(*_model, *_id)` columns are indexed too, so the [relationship queries](#querying-by-relationship) (`whereMorphedTo()` / morphTo eager-loading) are index-backed as well.
 
@@ -1006,7 +1013,7 @@ The `created_at` scopes always apply. `occurred_at` is only populated when you p
 
 ### Querying by Relationship
 
-Each audit log carries six polymorphic relationships — `actor`, `parent`, `record`, `related`, `subject`, and `tenant` — that morph on the fully-qualified class name stored in the paired `*_model` column (the `actor` relationship uses `actor_type`, which also stores the FQCN). Because the model registers these as standard `MorphTo` relationships and requires no morph map, you can filter by them with Laravel's **native** query builder methods — no package-specific scopes needed. Throughout this section, `AuditLog` refers to **your Eloquent model** — either the base `BoldlyGrow\AuditLog\Models\AuditLog` or your own `App\Models\AuditLog` that extends it.
+Each audit log carries six polymorphic relationships — `actor`, `parent`, `record`, `related`, `subject`, and `tenant` — that morph on the fully-qualified class name stored in the paired `*_model` column. Because the model registers these as standard `MorphTo` relationships and requires no morph map, you can filter by them with Laravel's **native** query builder methods — no package-specific scopes needed. Throughout this section, `AuditLog` refers to **your Eloquent model** — either the base `BoldlyGrow\AuditLog\Models\AuditLog` or your own `App\Models\AuditLog` that extends it.
 
 #### Matching a Related Model with `whereMorphedTo()`
 
@@ -1214,6 +1221,7 @@ dd($result);
 //     "actor_email" => null,
 //     "actor_id" => null,
 //     "actor_ip_addr" => null,
+//     "actor_model" => null,
 //     "actor_name" => null,
 //     "actor_provider_id" => null,
 //     "actor_session_id" => "…",

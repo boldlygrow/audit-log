@@ -63,6 +63,7 @@ use Illuminate\Support\Str;
  * @property string|null               $actor_email
  * @property string|null               $actor_id
  * @property string|null               $actor_ip_addr
+ * @property string|null               $actor_model
  * @property string|null               $actor_name
  * @property string|null               $actor_provider_id
  * @property string|null               $actor_session_id
@@ -226,6 +227,7 @@ class AuditLog extends Model
             'actor_email' => 'encrypted',
             'actor_id' => 'string',
             'actor_ip_addr' => 'string',
+            'actor_model' => 'string',
             'actor_name' => 'encrypted',
             'actor_provider_id' => 'string',
             'actor_session_id' => 'string',
@@ -291,14 +293,15 @@ class AuditLog extends Model
     /**
      * The actor (user, system, or service account) that performed the action.
      *
-     * Morphs on the `actor_type` column, which stores the fully-qualified class
-     * name of the authenticated user model.
+     * Morphs on the `actor_model` column (the fully-qualified class name of the
+     * authenticated user model), consistent with the other polymorphic relations.
+     * The paired `actor_type` column stores the human-friendly snake_case string.
      *
      * @return MorphTo<Model, $this>
      */
     public function actor(): MorphTo
     {
-        return $this->morphTo(name: 'actor', type: 'actor_type', id: 'actor_id');
+        return $this->morphTo(name: 'actor', type: 'actor_model', id: 'actor_id');
     }
 
     /**

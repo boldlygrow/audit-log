@@ -40,6 +40,10 @@ class AuditLog
      *                                           Ex. auth()->user()->id
      * @param  ?string  $actor_ip_addr           (optional) Override the IP address of the actor
      *                                           Ex. request()->ip()
+     * @param  ?string  $actor_model             (optional) Override the fully-qualified model class name of the actor.
+     *                                           When null it is populated from the authenticated user's class and the
+     *                                           `actor_type` is calculated as a snake_case string from it.
+     *                                           Ex. \App\Models\Auth\User::class
      * @param  ?string  $actor_name              (optional) Override the first and last name of the actor
      *                                           Ex. auth()->user()->name
      * @param  ?string  $actor_provider_id       (optional) The 3rd party vendor API ID of the actor (ex. Okta User ID)
@@ -50,10 +54,10 @@ class AuditLog
      *                                           null and enabled, it is auto-detected as `system` (console), `api`
      *                                           (API route or JSON request), or `web`. Must be one of the values
      *                                           configured in `config('audit-log.actor.source.allowed')`.
-     * @param  ?string  $actor_type              (optional) (Many-to-Many Relationship Events) Override the fully-
-     *                                           qualified namespace of the model with a many-to-many relationship.
-     *                                           Ex. App\\Models\\Auth\\User
-     *                                           Ex. config('auth.providers.users.model')
+     * @param  ?string  $actor_type              (optional) Override the `actor_type` that is calculated as a
+     *                                           snake_case string from `actor_model` if you want your logs to use
+     *                                           a different key for this model.
+     *                                           Ex. user
      * @param  ?string  $actor_username          (optional) Override the username of the actor
      *                                           Ex. auth()->user()->username
      * @param  ?string  $attribute_key           (optional) (State Changes) The database column name that has changed.
@@ -171,6 +175,7 @@ class AuditLog
         ?string $actor_email = null,
         ?string $actor_id = null,
         ?string $actor_ip_addr = null,
+        ?string $actor_model = null,
         ?string $actor_name = null,
         ?string $actor_provider_id = null,
         ?string $actor_session_id = null,
@@ -230,6 +235,7 @@ class AuditLog
                 'actor_email',
                 'actor_id',
                 'actor_ip_addr',
+                'actor_model',
                 'actor_name',
                 'actor_provider_id',
                 'actor_session_id',
@@ -300,11 +306,12 @@ class AuditLog
                     'actor_email' => self::resolveActorAttribute($user, 'email'),
                     'actor_id' => self::resolveActorAttribute($user, 'id'),
                     'actor_ip_addr' => $actor_ip_addr,
+                    'actor_model' => $user::class,
                     'actor_name' => self::resolveActorAttribute($user, 'name'),
                     'actor_provider_id' => self::resolveActorAttribute($user, 'provider_id'),
                     'actor_session_id' => session()->getId(),
                     'actor_source' => $actor_source_default,
-                    'actor_type' => $user::class,
+                    'actor_type' => self::calculateTypeFromModel($user::class),
                     'actor_username' => self::resolveActorAttribute($user, 'username'),
                 ];
             } else {
@@ -312,6 +319,7 @@ class AuditLog
                     'actor_email' => null,
                     'actor_id' => null,
                     'actor_ip_addr' => $actor_ip_addr,
+                    'actor_model' => null,
                     'actor_name' => null,
                     'actor_provider_id' => null,
                     'actor_session_id' => session()->getId(),
@@ -325,6 +333,7 @@ class AuditLog
                 'actor_email' => null,
                 'actor_id' => null,
                 'actor_ip_addr' => null,
+                'actor_model' => null,
                 'actor_name' => null,
                 'actor_provider_id' => null,
                 'actor_session_id' => null,
@@ -440,6 +449,7 @@ class AuditLog
                     'actor_email',
                     'actor_id',
                     'actor_ip_addr',
+                    'actor_model',
                     'actor_name',
                     'actor_provider_id',
                     'actor_session_id',
@@ -504,6 +514,7 @@ class AuditLog
         $validator = Validator::make($arguments_array, [
             'actor_email' => 'nullable|string',
             'actor_id' => 'nullable|string',
+            'actor_model' => 'nullable|string',
             'actor_name' => 'nullable|string',
             'actor_provider_id' => 'nullable|string',
             'actor_session_id' => 'nullable|string',

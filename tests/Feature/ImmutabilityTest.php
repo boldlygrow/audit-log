@@ -140,6 +140,7 @@ describe('mutation metadata', function () {
 
         $meta = AuditLogModel::where('event_type', 'audit.log.soft_deleted')->sole();
         expect($meta->actor_id)->toBe('actor-9')
-            ->and($meta->actor_type)->toBe(ImmutabilityActor::class);
+            ->and($meta->actor_model)->toBe(ImmutabilityActor::class)
+            ->and($meta->actor_type)->toBe('immutability_actor');
     });
 });

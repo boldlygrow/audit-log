@@ -25,7 +25,7 @@ Each framework section uses three columns:
 ### What this package provides
 
 - **Standardized, structured audit records** with a consistent set of context keys, so events are uniformly indexable and searchable. See [Log Parameter Definitions](README.md#log-parameter-definitions).
-- **Individual accountability / attribution** — every event can carry the actor's identity (`actor_id`, `actor_email`, `actor_name`, `actor_username`, `actor_provider_id`), authenticated model (`actor_type`), session (`actor_session_id`), network origin (`actor_ip_addr`, including proxy/CDN headers), and request channel (`actor_source`: `web` / `api` / `cli` / `system`). See [Actor Metadata](README.md#actor-metadata).
+- **Individual accountability / attribution** — every event can carry the actor's identity (`actor_id`, `actor_email`, `actor_name`, `actor_username`, `actor_provider_id`), authenticated model (`actor_model` FQCN + snake_case `actor_type`), session (`actor_session_id`), network origin (`actor_ip_addr`, including proxy/CDN headers), and request channel (`actor_source`: `web` / `api` / `cli` / `system`). See [Actor Metadata](README.md#actor-metadata).
 - **Event classification and outcome** — `event_type` (octet notation including result/reason), `level`, `message`, and originating `method`.
 - **Time attribution** — `occurred_at` and a formatted `datetime` in ISO 8601 (Zulu) for ordering and correlation.
 - **Change / state-transition capture** — `attribute_key`, `attribute_value_old`, `attribute_value_new`.
@@ -62,7 +62,7 @@ Most frameworks (notably NIST 800-53 **AU-3**, CIS **8.5**, and ISO **A.8.15**) 
 | **Where the event occurred / source** | `method` (code location), `actor_source` (channel), `job_*` (execution context) |
 | **Source of the event (origin)** | `actor_ip_addr`, `actor_session_id`, `actor_source` |
 | **Outcome of the event** | `event_type` result/reason segment (e.g. `…success.ok`, `…error.validation`), `level` |
-| **Identity of the individuals/subjects** | `actor_id`, `actor_email`, `actor_name`, `actor_username`, `actor_provider_id`, `actor_type` |
+| **Identity of the individuals/subjects** | `actor_id`, `actor_email`, `actor_name`, `actor_username`, `actor_provider_id`, `actor_model`, `actor_type` |
 | **Affected resources & before/after state** (AU-3(1) additional information) | `record_*`, `parent_*`, `related_*`, `subject_*`, `tenant_*`, `attribute_key`, `attribute_value_old`, `attribute_value_new` |
 
 ## Framework Mappings
