@@ -1,9 +1,5 @@
 # Audit and Event Log Handler
 
-[[_TOC_]]
-
-## Overview
-
 The Audit Log package is an open source [Composer](https://getcomposer.org/) package for use in Laravel applications that is used by other [Boldly Grow](https://github.com/boldlygrow) packages and ventures including [Provisionr](https://provisionr.io) to provide a consistent log syntax and optional database persistence for audit events. Although this is purpose built for our packages, you are welcome to adopt this for your own standardized logging.
 
 Please use at your own risk and create pull requests for any bugs that you encounter.
