@@ -40,6 +40,17 @@ The package is analyzed with [Larastan](https://github.com/larastan/larastan) (P
 vendor/bin/phpstan analyse
 ```
 
+### Changelog
+
+Release notes live in the root `CHANGELOG.md`, newest release first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with two project-specific additions.
+
+- Each release is an `h2` heading of the form `## [2.0.1] - 2026-07-22`, with a matching link reference at the bottom of the file. Because historical git tags are two-component (`2.0`, `1.3`), those link references point at the real tag names even though the heading uses the full `X.Y.Z` label.
+- Categories are `h3` and use Keep a Changelog's vocabulary — **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**, **Security** — plus **Overview** and **Upgrade Steps**, which are reserved for major releases. Omit any category with nothing to report; do not write "none this release".
+- Deprecations and removals go in their own category. Do not bury them inside **Changed**, where nobody looking for them will find them.
+- Every non-trivial entry carries a `**Why:**` sub-bullet explaining the reasoning, and a `**How:**` sub-bullet wherever a consumer has to take action. This rationale is the point of the changelog — an entry that only restates the diff is not worth writing.
+- Large releases may group entries under `h4` thematic subheads inside a category (see 2.0's **Added**).
+- Tag releases as `X.Y.Z` with no `v` prefix.
+
 ### Dependencies
 
 This package intentionally depends only on the individual `illuminate/*` components it uses (`config`, `database`, `log`, `support`) rather than the full `laravel/framework`. When adding functionality, prefer a specific `illuminate/*` module over pulling in the framework, and add new `require` entries with the same multi-version constraint span as the existing ones.

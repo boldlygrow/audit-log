@@ -105,7 +105,7 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) to learn more about how to contrib
 
 ### Upgrade Guide
 
-See the [changelog](changelog/) for release notes. If you are upgrading from `provisionesta/audit` (1.x), read the [2.0 changelog](changelog/2.0.md) for the package rename, class rename, and configuration changes.
+See the [changelog](CHANGELOG.md) for release notes. If you are upgrading from `provisionesta/audit` (1.x), read the [2.0 release notes](CHANGELOG.md#200---2026-07-20) for the package rename, class rename, and configuration changes.
 
 ### Add Composer Package
 
