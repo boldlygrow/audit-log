@@ -11,6 +11,7 @@ namespace BoldlyGrow\AuditLog;
 
 use BoldlyGrow\AuditLog\Exceptions\ValidationException;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log as LaravelLog;
@@ -24,148 +25,152 @@ class AuditLog
      *
      * @link https://docs.provisionr.app/architecture/audit/log/create
      *
-     * @param  string   $event_type              The octet notation event type that follows our codestyle conventions.
-     *                                           Ex. `{provider}.{entity}.{action}.{result}.{reason?}`
-     * @param  string   $level                   The log level for the log entry
-     *                                           Ex. debug|info|notice|warning|error|critical|alert|emergency
-     * @param  string   $message                 A short message to include in the logs. This will be auto-prefixed
-     *                                           with the fully-qualified method name (the "noun") so you can keep
-     *                                           the message focused on the "verb" language.
-     *                                           Ex. validation failed
-     * @param  string   $method                  The method where this audit log is created in or is on behalf of.
-     *                                           Ex. __METHOD__
-     * @param  ?string  $actor_email             (optional) Override the email address of the actor
-     *                                           Ex. auth()->user()->email
-     * @param  ?string  $actor_id                (optional) Override the database ID of the actor
-     *                                           Ex. auth()->user()->id
-     * @param  ?string  $actor_ip_addr           (optional) Override the IP address of the actor
-     *                                           Ex. request()->ip()
-     * @param  ?string  $actor_model             (optional) Override the fully-qualified model class name of the actor.
-     *                                           When null it is populated from the authenticated user's class and the
-     *                                           `actor_type` is calculated as a snake_case string from it.
-     *                                           Ex. \App\Models\Auth\User::class
-     * @param  ?string  $actor_name              (optional) Override the first and last name of the actor
-     *                                           Ex. auth()->user()->name
-     * @param  ?string  $actor_provider_id       (optional) The 3rd party vendor API ID of the actor (ex. Okta User ID)
-     *                                           Ex. auth()->user()->provider_id
-     * @param  ?string  $actor_session_id        (optional) The session ID of the actor
-     *                                           Ex. session()->getId()
-     * @param  ?string  $actor_source            (optional) The origin of the request that generated this event. When
-     *                                           null and enabled, it is auto-detected as `system` (console), `api`
-     *                                           (API route or JSON request), or `web`. Must be one of the values
-     *                                           configured in `config('audit-log.actor.source.allowed')`.
-     * @param  ?string  $actor_type              (optional) Override the `actor_type` that is calculated as a
-     *                                           snake_case string from `actor_model` if you want your logs to use
-     *                                           a different key for this model.
-     *                                           Ex. user
-     * @param  ?string  $actor_username          (optional) Override the username of the actor
-     *                                           Ex. auth()->user()->username
-     * @param  ?string  $attribute_key           (optional) (State Changes) The database column name that has changed.
-     * @param  ?string  $attribute_value_old     (optional) (State Changes) The value in the database before the update.
-     * @param  ?string  $attribute_value_new     (optional) (State Changes) The updated API value in the database.
-     * @param  ?int     $count_records           (optional) (Multiple records) Count of records processed.
-     * @param  bool     $database                (optional) Whether to persist this event to the database using the
-     *                                           model in `config('audit-log.database.model')`. Requires
-     *                                           `config('audit-log.database.enabled')` to be true. (default: false)
-     * @param  ?string  $dump_config             (optional) The array key in config/audit.php that contains the `date`,
-     *                                           `keys`, and `strings` schema configuration.
-     * @param           $dump_date               (optional) The PHP datetime format string for timestamps in array.
-     *                                          (default: 'c')
-     * @param  array    $dump_keys               (optional) An filtered list of array of keys from AuditLog::create()
-     *                                           method that returned in the response array.
-     * @param  array    $dump_strings            (optional) An array of key value pairs of static strings that should be
-     *                                           included in the in the response array (instead of having to
-     *                                           add them yourself with collection transformation later).
-     * @param  ?Carbon  $duration_ms             (optional) Carbon instance (timestamp) used for long running batch jobs
-     *                                           to provide a point-in-time duration since job started.
-     * @param  ?int     $duration_ms_per_record  (optional) Number of milliseconds divided by count of records. This is
-     *                                           not auto-calculated to allow flexibility for custom Carbon timestamps
-     * @param  array    $errors                  (optional) Flat array of error message(s) that will be encoded as JSON
-     * @param  ?Carbon  $event_ms                (optional) Carbon instance (timestamp) that was initialized at the
-     *                                           start of the action and provides a point-in-time duration for this
-     *                                           specific action within a longer running job.
-     * @param  ?int     $event_ms_per_record     (optional) Number of milliseconds divided by count of records. This
-     *                                           is not auto-calculated to allow flexibility for custom Carbon
-     *                                           timestamps
-     * @param  ?string  $job_batch               (optional) The human identifier string or system ID of the batch of
-     *                                           jobs. Format is at your discretion.
-     * @param  ?string  $job_id                  (optional) The human identifier string or system ID of the specific
-     *                                           job that triggered this log entry. Format is at your discretion.
-     * @param  ?string  $job_platform            (optional) The human identifier string of the platform that the
-     *                                           background jobs are running in. Format is at your discretion.
-     * @param  ?string  $job_pipeline_id         (optional) The system ID of the CI/CD pipeline (if applicable).
-     * @param  ?string  $job_timestamp           (optional) The timestamp that the job or pipeline was started. This
-     *                                           is useful for identifying which scheduled job timestamp triggered
-     *                                           this event.
-     * @param  ?string  $job_transaction_id      (optional) An alternative to job_id that can be used for additional
-     *                                           indexable identifiers used by your application or business logic.
-     * @param  bool     $log                     (optional) Whether to create a system log entry for this event.
-     *                                           This is used in conjunction `transaction` or only returning a
-     *                                           parsed array. (default: true)
-     * @param  array    $metadata                (optional) An array of custom metadata that should be included in
-     *                                           the log
-     * @param  ?string  $occurred_at             (optional) A datetime that will be formatted with Carbon for when the
-     *                                           event occurred at based on a created_at or updated_at API timestamp
-     * @param  ?string  $parent_id               (optional) (Many-to-Many Relationship Events) The database ID of the
-     *                                           database model with a many-to-many relationship.
-     * @param  ?string  $parent_type             (optional) (Many-to-Many Relationship Events) Override the
-     *                                           `parent_type` that is calculated as a snake_case string from
-     *                                           `parent_model` if you want your logs to use a different key for
-     *                                           this model.
-     *                                           Ex. okta_application
-     * @param  ?string  $parent_model            (optional) (Many-to-Many Relationship Events) The fully-qualified
-     *                                           model class name with a many-to-many relationship.
-     *                                           Ex. \App\Models\Okta\Application::class
-     * @param  ?string  $parent_provider_id      (optional) (Many-to-Many Relationship Events) The API ID of the
-     *                                           database model with a many-to-many relationship that is usually
-     *                                           stored in the database in the `provider_id` column.
-     * @param  ?string  $parent_reference_key    (optional) (Many-to-Many Relationship Events) The database column
-     *                                           name for value that is human readable in logs
-     *                                           Ex. name
-     * @param  ?string  $parent_reference_value  (optional) (Many-to-Many Relationship Events) The value of the human
-     *                                           readable database column
-     * @param  ?string  $record_id               (optional) The database ID of the affected database model
-     * @param  ?string  $record_type             (optional) Override the `record_type` that is calculated as a
-     *                                           snake_case string from `record_model` if you want your logs to use
-     *                                           a different key for this model.
-     *                                           Ex. okta_user
-     * @param  ?string  $record_model            (optional) The fully-qualified model class name of the affected
-     *                                           record.
-     *                                           Ex. \App\Models\Okta\User::class
-     * @param  ?string  $related_id              (optional) The database ID of a related record that is not a parent
-     *                                           or child relationship.
-     * @param  ?string  $related_type            (optional) Override the `related_type` that is calculated as a
-     *                                           snake_case string from `related_model` if you want your logs to
-     *                                           use a different key for this model.
-     *                                           Ex. identity
-     * @param  ?string  $related_model           (optional) The fully-qualified model class name of the related
-     *                                           record.
-     *                                           Ex. \App\Models\Identity::class
-     * @param  ?string  $subject_id              (optional) The database ID of the impacted human user, service
-     *                                           account, or other audited subject.
-     * @param  ?string  $subject_type            (optional) Override the `subject_type` that is calculated as a
-     *                                           snake_case string from `subject_model` if you want your logs to
-     *                                           use a different key for this model.
-     *                                           Ex. service
-     * @param  ?string  $subject_model           (optional) The fully-qualified model class name of the subject. Kept
-     *                                           generic so any application module's model may be used.
-     *                                           Ex. \App\Models\Service::class
-     * @param  ?string  $record_provider_id      (optional) The API ID of the affected database model that is
-     *                                           usually stored in the database in the `provider_id` column.
-     * @param  ?string  $record_reference_key    (optional) The database column name for value that is human
-     *                                           readable in logs
-     *                                           Ex. name
-     * @param  ?string  $record_reference_value  (optional) The value of the human readable database column
-     * @param  ?string  $tenant_id               (optional) The database ID of the top-level organization/tenant for
-     *                                           the provider
-     * @param  ?string  $tenant_type             (optional) Override the `tenant_type` that is calculated as a
-     *                                           snake_case string from `tenant_model` if you want your logs to use
-     *                                           a different key for this model.
-     *                                           Ex. okta_organization
-     * @param  ?string  $tenant_model            (optional) The fully-qualified model class name of the tenant entity.
-     *                                           Ex. \App\Models\Okta\Organization::class
-     * @param  bool     $transaction             (optional) Whether to create a Transaction database row for this event
-     *                                           (default: false)
+     * @param  string            $event_type              The octet notation event type that follows our codestyle conventions.
+     *                                                    Ex. `{provider}.{entity}.{action}.{result}.{reason?}`
+     * @param  string            $level                   The log level for the log entry
+     *                                                    Ex. debug|info|notice|warning|error|critical|alert|emergency
+     * @param  string            $message                 A short message to include in the logs. This will be auto-prefixed
+     *                                                    with the fully-qualified method name (the "noun") so you can keep
+     *                                                    the message focused on the "verb" language.
+     *                                                    Ex. validation failed
+     * @param  string            $method                  The method where this audit log is created in or is on behalf of.
+     *                                                    Ex. __METHOD__
+     * @param  ?string           $actor_email             (optional) Override the email address of the actor
+     *                                                    Ex. auth()->user()->email
+     * @param  ?string           $actor_id                (optional) Override the database ID of the actor
+     *                                                    Ex. auth()->user()->id
+     * @param  ?string           $actor_ip_addr           (optional) Override the IP address of the actor
+     *                                                    Ex. request()->ip()
+     * @param  ?string           $actor_model             (optional) Override the fully-qualified model class name of the actor.
+     *                                                    When null it is populated from the authenticated user's class and the
+     *                                                    `actor_type` is calculated as a snake_case string from it.
+     *                                                    Ex. \App\Models\Auth\User::class
+     * @param  ?string           $actor_name              (optional) Override the first and last name of the actor
+     *                                                    Ex. auth()->user()->name
+     * @param  ?string           $actor_provider_id       (optional) The 3rd party vendor API ID of the actor (ex. Okta User ID)
+     *                                                    Ex. auth()->user()->provider_id
+     * @param  ?string           $actor_session_id        (optional) The session ID of the actor
+     *                                                    Ex. session()->getId()
+     * @param  ?string           $actor_source            (optional) The origin of the request that generated this event. When
+     *                                                    null and enabled, it is auto-detected as `system` (console), `api`
+     *                                                    (API route or JSON request), or `web`. Must be one of the values
+     *                                                    configured in `config('audit-log.actor.source.allowed')`.
+     * @param  ?string           $actor_type              (optional) Override the `actor_type` that is calculated as a
+     *                                                    snake_case string from `actor_model` if you want your logs to use
+     *                                                    a different key for this model.
+     *                                                    Ex. user
+     * @param  ?string           $actor_username          (optional) Override the username of the actor
+     *                                                    Ex. auth()->user()->username
+     * @param  ?string           $attribute_key           (optional) (State Changes) The database column name that has changed.
+     * @param  ?string           $attribute_value_old     (optional) (State Changes) The value in the database before the update.
+     * @param  ?string           $attribute_value_new     (optional) (State Changes) The updated API value in the database.
+     * @param  ?int              $count_records           (optional) (Multiple records) Count of records processed.
+     * @param  bool              $database                (optional) Whether to persist this event to the database using the
+     *                                                    model in `config('audit-log.database.model')`. Requires
+     *                                                    `config('audit-log.database.enabled')` to be true. (default: false)
+     * @param  ?string           $dump_config             (optional) The array key in config/audit.php that contains the `date`,
+     *                                                    `keys`, and `strings` schema configuration.
+     * @param                    $dump_date               (optional) The PHP datetime format string for timestamps in array.
+     *                                                   (default: 'c')
+     * @param  array             $dump_keys               (optional) An filtered list of array of keys from AuditLog::create()
+     *                                                    method that returned in the response array.
+     * @param  array             $dump_strings            (optional) An array of key value pairs of static strings that should be
+     *                                                    included in the in the response array (instead of having to
+     *                                                    add them yourself with collection transformation later).
+     * @param  ?CarbonInterface  $duration_ms             (optional) Carbon instance (timestamp) used for long running batch jobs
+     *                                                    to provide a point-in-time duration since job started. Any
+     *                                                    `CarbonInterface` implementation is accepted, including
+     *                                                    `CarbonImmutable` for applications that use immutable dates.
+     * @param  ?int              $duration_ms_per_record  (optional) Number of milliseconds divided by count of records. This is
+     *                                                    not auto-calculated to allow flexibility for custom Carbon timestamps
+     * @param  array             $errors                  (optional) Flat array of error message(s) that will be encoded as JSON
+     * @param  ?CarbonInterface  $event_ms                (optional) Carbon instance (timestamp) that was initialized at the
+     *                                                    start of the action and provides a point-in-time duration for this
+     *                                                    specific action within a longer running job. Any `CarbonInterface`
+     *                                                    implementation is accepted, including `CarbonImmutable` for
+     *                                                    applications that use immutable dates.
+     * @param  ?int              $event_ms_per_record     (optional) Number of milliseconds divided by count of records. This
+     *                                                    is not auto-calculated to allow flexibility for custom Carbon
+     *                                                    timestamps
+     * @param  ?string           $job_batch               (optional) The human identifier string or system ID of the batch of
+     *                                                    jobs. Format is at your discretion.
+     * @param  ?string           $job_id                  (optional) The human identifier string or system ID of the specific
+     *                                                    job that triggered this log entry. Format is at your discretion.
+     * @param  ?string           $job_platform            (optional) The human identifier string of the platform that the
+     *                                                    background jobs are running in. Format is at your discretion.
+     * @param  ?string           $job_pipeline_id         (optional) The system ID of the CI/CD pipeline (if applicable).
+     * @param  ?string           $job_timestamp           (optional) The timestamp that the job or pipeline was started. This
+     *                                                    is useful for identifying which scheduled job timestamp triggered
+     *                                                    this event.
+     * @param  ?string           $job_transaction_id      (optional) An alternative to job_id that can be used for additional
+     *                                                    indexable identifiers used by your application or business logic.
+     * @param  bool              $log                     (optional) Whether to create a system log entry for this event.
+     *                                                    This is used in conjunction `transaction` or only returning a
+     *                                                    parsed array. (default: true)
+     * @param  array             $metadata                (optional) An array of custom metadata that should be included in
+     *                                                    the log
+     * @param  ?string           $occurred_at             (optional) A datetime that will be formatted with Carbon for when the
+     *                                                    event occurred at based on a created_at or updated_at API timestamp
+     * @param  ?string           $parent_id               (optional) (Many-to-Many Relationship Events) The database ID of the
+     *                                                    database model with a many-to-many relationship.
+     * @param  ?string           $parent_type             (optional) (Many-to-Many Relationship Events) Override the
+     *                                                    `parent_type` that is calculated as a snake_case string from
+     *                                                    `parent_model` if you want your logs to use a different key for
+     *                                                    this model.
+     *                                                    Ex. okta_application
+     * @param  ?string           $parent_model            (optional) (Many-to-Many Relationship Events) The fully-qualified
+     *                                                    model class name with a many-to-many relationship.
+     *                                                    Ex. \App\Models\Okta\Application::class
+     * @param  ?string           $parent_provider_id      (optional) (Many-to-Many Relationship Events) The API ID of the
+     *                                                    database model with a many-to-many relationship that is usually
+     *                                                    stored in the database in the `provider_id` column.
+     * @param  ?string           $parent_reference_key    (optional) (Many-to-Many Relationship Events) The database column
+     *                                                    name for value that is human readable in logs
+     *                                                    Ex. name
+     * @param  ?string           $parent_reference_value  (optional) (Many-to-Many Relationship Events) The value of the human
+     *                                                    readable database column
+     * @param  ?string           $record_id               (optional) The database ID of the affected database model
+     * @param  ?string           $record_type             (optional) Override the `record_type` that is calculated as a
+     *                                                    snake_case string from `record_model` if you want your logs to use
+     *                                                    a different key for this model.
+     *                                                    Ex. okta_user
+     * @param  ?string           $record_model            (optional) The fully-qualified model class name of the affected
+     *                                                    record.
+     *                                                    Ex. \App\Models\Okta\User::class
+     * @param  ?string           $related_id              (optional) The database ID of a related record that is not a parent
+     *                                                    or child relationship.
+     * @param  ?string           $related_type            (optional) Override the `related_type` that is calculated as a
+     *                                                    snake_case string from `related_model` if you want your logs to
+     *                                                    use a different key for this model.
+     *                                                    Ex. identity
+     * @param  ?string           $related_model           (optional) The fully-qualified model class name of the related
+     *                                                    record.
+     *                                                    Ex. \App\Models\Identity::class
+     * @param  ?string           $subject_id              (optional) The database ID of the impacted human user, service
+     *                                                    account, or other audited subject.
+     * @param  ?string           $subject_type            (optional) Override the `subject_type` that is calculated as a
+     *                                                    snake_case string from `subject_model` if you want your logs to
+     *                                                    use a different key for this model.
+     *                                                    Ex. service
+     * @param  ?string           $subject_model           (optional) The fully-qualified model class name of the subject. Kept
+     *                                                    generic so any application module's model may be used.
+     *                                                    Ex. \App\Models\Service::class
+     * @param  ?string           $record_provider_id      (optional) The API ID of the affected database model that is
+     *                                                    usually stored in the database in the `provider_id` column.
+     * @param  ?string           $record_reference_key    (optional) The database column name for value that is human
+     *                                                    readable in logs
+     *                                                    Ex. name
+     * @param  ?string           $record_reference_value  (optional) The value of the human readable database column
+     * @param  ?string           $tenant_id               (optional) The database ID of the top-level organization/tenant for
+     *                                                    the provider
+     * @param  ?string           $tenant_type             (optional) Override the `tenant_type` that is calculated as a
+     *                                                    snake_case string from `tenant_model` if you want your logs to use
+     *                                                    a different key for this model.
+     *                                                    Ex. okta_organization
+     * @param  ?string           $tenant_model            (optional) The fully-qualified model class name of the tenant entity.
+     *                                                    Ex. \App\Models\Okta\Organization::class
+     * @param  bool              $transaction             (optional) Whether to create a Transaction database row for this event
+     *                                                    (default: false)
      */
     public static function create(
         string $event_type,
@@ -187,14 +192,14 @@ class AuditLog
         ?string $attribute_value_new = null,
         ?int $count_records = null,
         bool $database = false,
-        ?Carbon $duration_ms = null,
+        ?CarbonInterface $duration_ms = null,
         ?string $dump_config = null,
         string $dump_date = 'c',
         array $dump_strings = [],
         array $dump_keys = [],
         ?int $duration_ms_per_record = null,
         array $errors = [],
-        ?Carbon $event_ms = null,
+        ?CarbonInterface $event_ms = null,
         ?int $event_ms_per_record = null,
         ?string $job_batch = null,
         ?string $job_id = null,

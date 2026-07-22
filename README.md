@@ -366,9 +366,9 @@ AuditLog::create(
 <td>(<a href="#response-schema">Response Schema</a>) An array of key value pairs of static strings that should be included in the in the response array (instead of having to add them yourself with collection transformation later).</td>
 </tr>
 <tr>
-<td>duration_ms<br /><code>Carbon</code></td>
+<td>duration_ms<br /><code>CarbonInterface</code></td>
 <td><code>$duration_ms</code></td>
-<td>Carbon instance (timestamp) used for long running batch jobs to provide a point-in-time duration since job started.</td>
+<td>Carbon instance (timestamp) used for long running batch jobs to provide a point-in-time duration since job started. Any <code>CarbonInterface</code> implementation is accepted, including <code>CarbonImmutable</code>.</td>
 </tr>
 <tr>
 <td>duration_ms_per_record<br /><code>int</code></td>
@@ -381,9 +381,9 @@ AuditLog::create(
 <td>Flat array of error message(s) that will be encoded as JSON</td>
 </tr>
 <tr>
-<td>event_ms<br /><code>Carbon</code></td>
+<td>event_ms<br /><code>CarbonInterface</code></td>
 <td><code>$event_ms</code></td>
-<td>Carbon instance (timestamp) that was initialized at the start of the action and provides a point-in-time duration for this specific action within a longer running job.</td>
+<td>Carbon instance (timestamp) that was initialized at the start of the action and provides a point-in-time duration for this specific action within a longer running job. Any <code>CarbonInterface</code> implementation is accepted, including <code>CarbonImmutable</code>.</td>
 </tr>
 <tr>
 <td>event_ms_per_record<br /><code>int</code></td>

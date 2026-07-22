@@ -2,6 +2,7 @@
 
 use BoldlyGrow\AuditLog\AuditLog;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 
 describe('response array shaping', function () {
     it('applies a named dump_config schema from config', function () {
@@ -46,6 +47,18 @@ describe('response array shaping', function () {
 
         expect($result['event_ms'])->toBeInt()
             ->and($result['event_ms'])->toBeGreaterThanOrEqual(200);
+    });
+
+    it('accepts a CarbonImmutable ms timestamp', function () {
+        $result = AuditLog::create(...auditArgs([
+            'duration_ms' => CarbonImmutable::now()->subMilliseconds(500),
+            'event_ms' => CarbonImmutable::now()->subMilliseconds(250),
+        ]));
+
+        expect($result['event_ms'])->toBeInt()
+            ->and($result['event_ms'])->toBeGreaterThanOrEqual(200)
+            ->and($result['duration_ms'])->toBeInt()
+            ->and($result['duration_ms'])->toBeGreaterThanOrEqual(450);
     });
 
     it('includes errors and metadata arrays in the response', function () {
