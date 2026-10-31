@@ -193,6 +193,8 @@ class AuditLog extends Model
     /**
      * Restore a soft-deleted model, wrapping the restore and its recorded audit
      * entry in a single transaction.
+     *
+     * @return bool
      */
     public function restore()
     {
@@ -358,7 +360,10 @@ class AuditLog extends Model
     /**
      * Get records that were created before a specific date
      *
-     * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
+     * @param  Builder<self>  $query
+     * @param  string         $date   A Carbon parsable date (most date and datetime formats allowed)
+     *
+     * @return Builder<self>
      */
     public function scopeCreatedBefore(Builder $query, $date): Builder
     {
@@ -368,7 +373,10 @@ class AuditLog extends Model
     /**
      * Get records that were created after a specific date
      *
-     * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
+     * @param  Builder<self>  $query
+     * @param  string         $date   A Carbon parsable date (most date and datetime formats allowed)
+     *
+     * @return Builder<self>
      */
     public function scopeCreatedAfter(Builder $query, $date): Builder
     {
@@ -378,7 +386,10 @@ class AuditLog extends Model
     /**
      * Get records that occurred before a specific date
      *
-     * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
+     * @param  Builder<self>  $query
+     * @param  string         $date   A Carbon parsable date (most date and datetime formats allowed)
+     *
+     * @return Builder<self>
      */
     public function scopeOccurredBefore(Builder $query, $date): Builder
     {
@@ -388,7 +399,10 @@ class AuditLog extends Model
     /**
      * Get records that occurred after a specific date
      *
-     * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
+     * @param  Builder<self>  $query
+     * @param  string         $date   A Carbon parsable date (most date and datetime formats allowed)
+     *
+     * @return Builder<self>
      */
     public function scopeOccurredAfter(Builder $query, $date): Builder
     {
@@ -398,7 +412,10 @@ class AuditLog extends Model
     /**
      * Get only soft deleted records that were deactivated or expired before a specific date
      *
-     * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
+     * @param  Builder<self>  $query
+     * @param  string         $date   A Carbon parsable date (most date and datetime formats allowed)
+     *
+     * @return Builder<self>
      */
     public function scopeDeletedBefore(Builder $query, $date): Builder
     {
@@ -408,7 +425,10 @@ class AuditLog extends Model
     /**
      * Get only soft deleted records that were deactivated or expired after a specific date
      *
-     * @param  string  $date  A Carbon parsable date (most date and datetime formats allowed)
+     * @param  Builder<self>  $query
+     * @param  string         $date   A Carbon parsable date (most date and datetime formats allowed)
+     *
+     * @return Builder<self>
      */
     public function scopeDeletedAfter(Builder $query, $date): Builder
     {
