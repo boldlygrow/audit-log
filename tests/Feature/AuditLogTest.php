@@ -122,6 +122,16 @@ describe('proxy ip header', function () {
 
         expect($result['actor_ip_addr'])->toBe('203.0.113.7');
     });
+
+    it('uses an explicit actor_ip_addr instead of the proxy header or request ip', function () {
+        config()->set('audit-log.actor.ip_headers', ['CF-Connecting-IP']);
+        request()->headers->set('CF-Connecting-IP', '203.0.113.7');
+
+        $result = AuditLog::create(...auditArgs(['actor_ip_addr' => '198.51.100.9', 'database' => true]));
+
+        expect($result['actor_ip_addr'])->toBe('198.51.100.9')
+            ->and(AuditLogModel::firstOrFail()->actor_ip_addr)->toBe('198.51.100.9');
+    });
 });
 
 describe('output tweaks', function () {

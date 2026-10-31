@@ -300,7 +300,8 @@ class AuditLog
             ],
         ];
 
-        $actor_ip_addr = self::resolveActorIpAddress();
+        // An actor_ip_addr argument overrides the IP address that is resolved from the request.
+        $actor_ip_addr ??= self::resolveActorIpAddress();
 
         $actor_source_default = config('audit-log.actor.source.enabled')
             ? self::calculateActorSource()

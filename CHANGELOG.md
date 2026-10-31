@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Overview
 
-This release drops support for Laravel 11, which is past the end of its security support. `AuditLog::create()`, the configuration, and the database schema are unchanged, so applications on Laravel 12 or 13 can upgrade without code changes.
+This release drops support for Laravel 11, which is past the end of its security support. The `AuditLog::create()` parameters, the configuration, and the database schema are unchanged, so applications on Laravel 12 or 13 can upgrade without code changes. Check the **Fixed** entries if you pass `actor_ip_addr`.
 
 The test suite now runs on PHP 8.2 through 8.5 with Laravel 12 and 13.
 
@@ -25,6 +25,13 @@ The test suite now runs on PHP 8.2 through 8.5 with Laravel 12 and 13.
     - The `illuminate/*` constraints are `^12.0 || ^13.0`.
     - **Why:** Laravel 11's security support ended in March 2026. Every 11.x release has security advisories that Composer blocks from installing by default, so it can't be installed or tested without turning off Composer's security blocking.
     - **How:** Upgrade your application to Laravel 12 or 13 before you upgrade to `^3.0`. An application that must stay on Laravel 11 can stay on `^2.0`.
+
+### Fixed
+
+- **An `actor_ip_addr` argument is recorded as the actor's IP address**
+    - `AuditLog::create()` documents `actor_ip_addr` as an override, but 2.x replaced it with the address from the `config('audit-log.actor.ip_headers')` proxy headers or `request()->ip()`.
+    - Calls that pass `actor_ip_addr` now log, store, and return that value. Calls that don't pass it still get the resolved request IP address.
+    - **How:** If you pass `actor_ip_addr`, check that it's the address that you want recorded, since 2.x recorded the request IP address instead.
 
 ### Upgrade Steps
 
