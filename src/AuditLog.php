@@ -12,6 +12,7 @@ namespace BoldlyGrow\AuditLog;
 use BoldlyGrow\AuditLog\Exceptions\ValidationException;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log as LaravelLog;
@@ -575,6 +576,19 @@ class AuditLog
             'dump_keys' => 'array',
             'dump_strings' => 'array',
         ]);
+
+        // A dump_config name must be a schema in config/audit-log.php, since the response array is built from it. This is
+        // checked here so that the event is not logged or persisted before the response array fails.
+        $validator->after(function (ValidatorContract $validator) use ($arguments_array): void {
+            $dump_config = $arguments_array['dump_config'] ?? null;
+
+            if (is_string($dump_config) && ! is_array(config('audit-log.dump.' . $dump_config))) {
+                $validator->errors()->add(
+                    'dump_config',
+                    'The `audit-log.dump.' . $dump_config . '` dump config is not defined in config/audit-log.php.'
+                );
+            }
+        });
 
         if ($validator->fails()) {
             LaravelLog::log(

@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Overview
 
-This release drops support for Laravel 11, which is past the end of its security support. The `AuditLog::create()` parameters, the configuration, and the database schema are unchanged, so applications on Laravel 12 or 13 can upgrade without code changes. Check the **Fixed** entries if you pass `actor_ip_addr`.
+This release drops support for Laravel 11, which is past the end of its security support. The `AuditLog::create()` parameters, the configuration, and the database schema are unchanged, so applications on Laravel 12 or 13 can upgrade without code changes. Check the **Fixed** entries if you pass `actor_ip_addr` or a `dump_config` name.
 
 The test suite now runs on PHP 8.2 through 8.5 with Laravel 12 and 13.
 
@@ -32,6 +32,10 @@ The test suite now runs on PHP 8.2 through 8.5 with Laravel 12 and 13.
     - `AuditLog::create()` documents `actor_ip_addr` as an override, but 2.x replaced it with the address from the `config('audit-log.actor.ip_headers')` proxy headers or `request()->ip()`.
     - Calls that pass `actor_ip_addr` now log, store, and return that value. Calls that don't pass it still get the resolved request IP address.
     - **How:** If you pass `actor_ip_addr`, check that it's the address that you want recorded, since 2.x recorded the request IP address instead.
+- **A `dump_config` name that isn't configured throws a `ValidationException`**
+    - In 2.x, a `dump_config` name that wasn't defined in `config('audit-log.dump')` failed with an `ErrorException` (`Trying to access array offset on null`) after the event had already been logged and persisted.
+    - It now throws `BoldlyGrow\AuditLog\Exceptions\ValidationException` with a message that names the missing key (ex. ``The `audit-log.dump.okta_user` dump config is not defined in config/audit-log.php.``), before the event is logged or persisted.
+    - **How:** Add the schema to the `dump` array in your published `config/audit-log.php`, or catch `ValidationException` instead of `ErrorException`.
 
 ### Upgrade Steps
 
