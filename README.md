@@ -6,7 +6,7 @@ Please use at your own risk and create pull requests for any bugs that you encou
 
 ### Problem Statement
 
-When using [Laravel Logging](https://laravel.com/docs/10.x/logging) with the `Log::info('Message', ['key1' => 'value', 'key2' => 'value'])` syntax, it is easy to have inconsistency with log formatting that results in a variety of log messages and varying context keys.
+When using [Laravel Logging](https://laravel.com/docs/logging) with the `Log::info('Message', ['key1' => 'value', 'key2' => 'value'])` syntax, it is easy to have inconsistency with log formatting that results in a variety of log messages and varying context keys.
 
 The `BoldlyGrow\AuditLog\AuditLog::create()` method provides a pre-defined set of context keys that allow us to improve indexing and searchability in external logging platforms, and ensures that all events provide as much context data as possible in a consistent format.
 
@@ -76,7 +76,7 @@ A single event can capture every element that audit-record standards — NIST 80
 
 ### Issue Tracking and Bug Reports
 
-We do not maintain a roadmap of feature requests, however we invite you to contribute and we will gladly review your merge requests.
+We do not maintain a roadmap of feature requests, however we invite you to contribute and we will gladly review your pull requests.
 
 Please create an [issue](https://github.com/boldlygrow/audit-log/issues) for bug reports.
 
@@ -86,7 +86,7 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) to learn more about how to contrib
 
 ### Maintainers
 
-| Name | GitLab Handle | Email |
+| Name | GitHub Handle | Email |
 |------|---------------|-------|
 | [Jeff Martin](https://www.linkedin.com/in/jeffersonmmartin/) | [@jeffersonmartin](https://github.com/jeffersonmartin) | `jeff [at] boldlygrow [dot] us` |
 
@@ -100,17 +100,17 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) to learn more about how to contrib
 
 | Requirement | Version                     |
 |-------------|-----------------------------|
-| PHP         | `^8.2`                      |
-| Laravel     | `^11.0`, `^12.0`, `^13.0`   |
+| PHP         | `^8.2` (up to 8.5 tested)   |
+| Laravel     | `^12.0`, `^13.0`            |
 
 ### Upgrade Guide
 
-See the [changelog](CHANGELOG.md) for release notes. If you are upgrading from `provisionesta/audit` (1.x), read the [2.0 release notes](CHANGELOG.md#200---2026-07-20) for the package rename, class rename, and configuration changes.
+See the [changelog](CHANGELOG.md) for release notes. If you are upgrading from 2.x, read the [3.0 release notes](CHANGELOG.md#300---2026-10-31) for the supported Laravel versions. If you are upgrading from `provisionesta/audit` (1.x), read the [2.0 release notes](CHANGELOG.md#200---2026-07-20) for the package rename, class rename, and configuration changes.
 
 ### Add Composer Package
 
 ```plain
-composer require boldlygrow/audit-log:^2.0
+composer require boldlygrow/audit-log:^3.0
 ```
 
 The old `provisionesta/audit` package name is retained as a `replace` alias, so existing dependency graphs continue to resolve during the transition.
