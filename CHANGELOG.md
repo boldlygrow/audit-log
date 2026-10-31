@@ -257,7 +257,7 @@ $keys = AuditLog::encryptedArrayKeys('metadata');
 5. **(Optional) Turn on database persistence.** Publish and run the migration (`php artisan vendor:publish --tag=audit-log`, then `php artisan migrate`), and add `database: true` to the events that you want to store. Persistence is enabled by default, so set `config('audit-log.database.enabled')` to `false` if your application doesn't use a database. `transaction: true` still works, but `database: true` is preferred.
 6. This is not an exhaustive list. Review the `README.md` for the latest syntax and usage guidelines.
 
-*Releases prior to 2.0 were developed on GitLab as `provisionesta/audit`. The `!N` tokens in the entries below are GitLab merge request references, retained for historical accuracy.*
+*Releases prior to 2.0 were developed on GitLab as `provisionesta/audit`.*
 
 ## [1.3.0] - 2025-04-27
 
@@ -269,43 +269,43 @@ $keys = AuditLog::encryptedArrayKeys('metadata');
 
 ### Fixed
 
-- **The actor fields can be turned off with a config value** (!16)
+- **The actor fields can be turned off with a config value**
     - When `config('audit.actor.enabled')` (`AUDIT_ACTOR_ENABLED`) is `false`, the `actor_*` fields aren't filled from the authenticated user and request. It defaults to `true`.
 
 ## [1.2.1] - 2024-11-20
 
 ### Removed
 
-- **`server_hostname` is removed from the log context** (!14)
+- **`server_hostname` is removed from the log context**
     - **Why:** It wasn't useful, and it isn't available on some systems.
 
 ## [1.2.0] - 2024-11-05
 
 ### Added
 
-- **`actor_*` fields** (!11, !12)
-    - `actor_email`, `actor_id`, `actor_ip_addr`, `actor_name`, `actor_provider_id`, `actor_session_id`, `actor_type`, and `actor_username` are filled from the authenticated user and the request. !12 fixed typos in the implementation.
-- **`memory_current`, `memory_peak`, and `server_hostname` in the log context** (!12)
+- **`actor_*` fields**
+    - `actor_email`, `actor_id`, `actor_ip_addr`, `actor_name`, `actor_provider_id`, `actor_session_id`, `actor_type`, and `actor_username` are filled from the authenticated user and the request.
+- Add `memory_current`, `memory_peak`, and `server_hostname` to the log context
 
 ### Fixed
 
-- **`*_id` values can be any string** (!10)
+- **`*_id` values can be any string**
     - The validation rules no longer require a UUID.
 
 ## [1.1.0] - 2024-03-02
 
 ### Added
 
-- **Background job parameters** (!4)
+- **Background job parameters**
     - `job_batch`, `job_id`, `job_platform`, `job_pipeline_id`, `job_timestamp`, and `job_transaction_id`.
-- **`Log::create()` returns an array with a custom schema** (!5)
+- **`Log::create()` returns an array with a custom schema**
     - The `dump_config`, `dump_date`, `dump_keys`, and `dump_strings` parameters set which keys and static strings the array includes.
-- Add instructions to `CONTRIBUTING.md` for testing the package in an existing project (!7)
+- Add instructions to `CONTRIBUTING.md` for testing the package in an existing project
 
 ### Fixed
 
-- Add `(optional)` to the `Log::create()` docblock for each optional parameter (!6)
-- **`*_id` and `*_type` no longer have a `required_with` validation rule** (!8)
+- Add `(optional)` to the `Log::create()` docblock for each optional parameter
+- Remove the `required_with` validation rule from `*_id` and `*_type`
 
 ## [1.0.0] - 2023-12-29
 
