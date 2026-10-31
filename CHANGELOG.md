@@ -4,61 +4,117 @@ All notable changes to `boldlygrow/audit-log` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-10-31
+
+### Overview
+
+This release drops support for Laravel 11, which is past the end of its security support. `AuditLog::create()`, the configuration, and the database schema are unchanged, so applications on Laravel 12 or 13 can upgrade without code changes.
+
+The test suite now runs on PHP 8.2 through 8.5 with Laravel 12 and 13.
+
+### Added
+
+- **PHPStan types for `AuditLog::create()` and the model's date range scopes**
+    - `create()` is documented as returning `array<string, mixed>`, and its `dump_keys`, `dump_strings`, `errors`, and `metadata` parameters document their value types.
+    - The `createdBefore`, `createdAfter`, `occurredBefore`, `occurredAfter`, `deletedBefore`, and `deletedAfter` scopes are documented with `Builder<self>`.
+    - **Why:** PHPStan and Larastan can check the values that your application passes to `create()` and reads from its response.
+
+### Removed
+
+- **Laravel 11 is no longer supported**
+    - The `illuminate/*` constraints are `^12.0 || ^13.0`.
+    - **Why:** Laravel 11's security support ended in March 2026. Every 11.x release has security advisories that Composer blocks from installing by default, so it can't be installed or tested without turning off Composer's security blocking.
+    - **How:** Upgrade your application to Laravel 12 or 13 before you upgrade to `^3.0`. An application that must stay on Laravel 11 can stay on `^2.0`.
+
+### Upgrade Steps
+
+1. **Upgrade Laravel first.** Your application must run Laravel 12 or 13. Laravel 12 supports PHP 8.2 or newer, and Laravel 13 requires PHP 8.3 or newer.
+2. **Update the package.** Change your constraint to `"boldlygrow/audit-log": "^3.0"`, and run `composer update boldlygrow/audit-log`.
+
+No code, configuration, or migration changes are needed.
+
 ## [2.0.1] - 2026-07-22
 
 ### Changed
 
-- Adopted Keep a Changelog standardized format and consolidated `changelog/*` files per version into a single top-level [CHANGELOG.md](CHANGELOG.md) file.
+- **Release notes are consolidated in `CHANGELOG.md`**
+    - The per-version `changelog/*` files were merged into this file, in the Keep a Changelog format.
 
 ### Fixed
 
-- Fixed a bug where the `duration_ms` and `event_ms` parameters of `AuditLog::create()` rejected `CarbonImmutable` instances. Both are now typed as `?CarbonInterface` instead of `?Carbon`, so any Carbon implementation is accepted.
-    - **Why:** Applications that opt into immutable dates (`Date::use(CarbonImmutable::class)`, which makes `now()` return a `CarbonImmutable`) could not pass the result of `now()` straight into these parameters. The mutable-only type hint rejected it with a `TypeError`, forcing every such call site to wrap the value in `Carbon::instance(...)` first. The parameters are only ever read to calculate a millisecond delta, so widening the type is backward compatible — existing `Carbon` call sites are unaffected, and any `Carbon::instance()` conversion added to work around the old type hint can be removed.
+- **`duration_ms` and `event_ms` accept a `CarbonImmutable`**
+    - Both `AuditLog::create()` parameters are typed as `?CarbonInterface` instead of `?Carbon`, so any Carbon implementation is accepted.
+    - Applications that use immutable dates (`Date::use(CarbonImmutable::class)`, which makes `now()` return a `CarbonImmutable`) got a `TypeError` when they passed `now()` to these parameters.
+    - The parameters are only read to calculate a millisecond delta, so existing `Carbon` call sites are unaffected.
+    - **How:** You can remove any `Carbon::instance()` conversion that you added to work around the old type.
 
 ## [2.0.0] - 2026-07-20
 
 ### Overview
 
-Version 2.0 is both a rebrand and a significant feature release.
+This release moves the package to the `BoldlyGrow` namespace, renames the `Log` class to `AuditLog`, and adds database persistence.
 
-The project moves to the maintainer's `BoldlyGrow` namespace, renames the primary `Log` class to `AuditLog` to avoid shadowing Laravel's `Illuminate\Support\Facades\Log`, and extends framework support to Laravel v13.
-
-More importantly, it delivers the database persistence layer that earlier releases described as "upcoming." Audit events can now be written to a queryable `audit_logs` table in addition to the system log, backed by a shipped Eloquent model and a publishable migration. The event schema has been broadened (relationship fields, request-origin tracking, model-to-type auto-calculation) and made configurable end-to-end (actor attribute mapping, proxy IP headers, an allowed actor-source vocabulary, and a custom-fields mechanism) so the package can adapt to any application's models and conventions without being forked.
-
-The upgrade is designed to be low-friction. The old `provisionesta/audit` package name is retained as a Composer `replace` alias, the original `Log` class remains as a deprecated subclass, and every new capability is opt-in with backward-compatible defaults — a 1.x call site continues to behave exactly as before.
+- **The package is renamed** from `provisionesta/audit` to `boldlygrow/audit-log`. The `Log` class is renamed to `AuditLog`, so it no longer shadows Laravel's `Illuminate\Support\Facades\Log`.
+- **Audit events can be stored in the database.** Events can be written to a queryable `audit_logs` table in addition to the system log, with a shipped Eloquent model and a publishable migration. This is the store that earlier releases described as "upcoming."
+- **The event schema is broader and configurable.** It adds relationship fields, request origin tracking, and model-to-type calculation. The actor attributes, proxy IP headers, actor sources, and custom fields are configurable, so the package can adapt to an application's models without being forked.
+- **Laravel v11, v12, and v13 are supported.** Support for Laravel v8, v9, and v10 is dropped.
+- **1.x call sites keep working.** `provisionesta/audit` is kept as a Composer `replace` alias, the `Log` class remains as a deprecated subclass, and every new capability is opt-in with backward-compatible defaults.
 
 ### Added
 
 #### Framework Support
 
-- **Laravel v11–v13 support.** The `illuminate/*` constraints target `^11.0 || ^12.0 || ^13.0` and PHP `^8.2`. (The older v8–v10 floor was dropped — see **Minimum framework requirement** under Changed for the rationale.)
+- **Laravel v11, v12, and v13 are supported**
+    - The `illuminate/*` constraints are `^11.0 || ^12.0 || ^13.0`, with PHP `^8.2`. Laravel v8, v9, and v10 are no longer supported (see **Removed**).
 
 #### Database Persistence
 
-- **Persist audit events to the database.** Passing `database: true` writes the event to the Eloquent model configured at `config('audit-log.database.model')`, in addition to the system log. Persistence is gated by `config('audit-log.database.enabled')`, which **defaults to true**.
-    - **Why:** System logs are frequently rotated, sampled, or shipped to third parties with short retention. Compliance and forensic use cases need audit events retained perpetually and queryable with SQL. This release finally ships the durable store that the 1.x README promised as an "upcoming" `audit_transactions` table.
-    - **How:** Publish and run the migration (`php artisan vendor:publish --tag=audit-log` then `php artisan migrate`), and add `database: true` to the events you want stored. The `audit-log` tag publishes both the config and the migration; use `--tag=audit-log-migrations` for the migration on its own.
-- **Shipped base model with polymorphic relationships.** The package ships a working `BoldlyGrow\AuditLog\Models\AuditLog` model with `morphTo` relationships (`actor`, `parent`, `record`, `related`, `subject`, `tenant`) resolved from the stored fully-qualified class names, JSON/`datetime` casts, soft deletes, and a config-driven table name.
-    - **Why:** So persistence works out of the box with zero setup, while still giving applications a first-class model to query and relate. To add your own relationships, casts, or scopes, create a model that extends the base and point `config('audit-log.database.model')` at it — bug fixes and new columns from the package flow through automatically.
-- **Date-range query scopes.** The base model ships `createdBefore` / `createdAfter`, `occurredBefore` / `occurredAfter`, and `deletedBefore` / `deletedAfter` scopes (the `deleted*` pair operate on soft-deleted rows) that accept any Carbon-parsable date.
-    - **Why:** Time-bounded lookups — "what happened to this record last quarter," retention sweeps, incident windows — are the most common audit queries, and scopes keep those call sites readable and consistent.
-- **Configurable table name.** `config('audit-log.database.table')` controls the table used by both the migration and the model.
-    - **Why:** To avoid collisions with an existing `audit_logs` table and to let applications follow their own naming conventions.
-- **UUIDv7 primary key and configurable identifier formats.** The primary key defaults to a **UUIDv7** (timestamp-ordered), generated by the base model in its `creating` hook (with `getIncrementing()`/`getKeyType()` marking the key as a non-incrementing string). The polymorphic reference id columns (`actor_id`, `record_id`, `parent_id`, `related_id`, `subject_id`, `tenant_id`) default to `CHAR(36)`, sized for a UUID or ULID, while arbitrary external identifiers (`*_provider_id`, `*_reference_*`, `actor_session_id`, job ids) stay `VARCHAR`. The migration carries an inline comment block showing how to switch any id column to `BIGINT`, `ULID`, or a custom format before running `migrate`, plus a `SAFETY CHECK` guard at the top of `up()` that throws until you delete it — so `php artisan migrate` cannot run with unreviewed id formats (the guard is skipped under the test runner).
-    - **Why:** UUIDv7 is the de facto standard identifier for logging/audit systems — globally unique (so entries can be generated anywhere and merged) and timestamp-ordered (so it stays index-friendly). Applications key their models differently, so the reference-id formats are documented as an explicit, one-time choice at install rather than a hard-coded assumption, and the guard makes that choice deliberate instead of accidental.
-- **Encryption at rest for sensitive fields.** The shipped model casts `actor_email`, `actor_name`, `actor_username`, `attribute_value_old`, `attribute_value_new`, `parent_reference_value`, `record_reference_value` as `encrypted`, and `metadata` as `encrypted:array`. Those columns are stored as `TEXT` (the ciphertext exceeds a `VARCHAR(255)`), and every remaining column is explicitly cast (`string`/`integer`/`datetime`/`array`).
-    - **Why:** Audit records frequently capture PII and before/after values; encrypting them at rest reduces exposure if the database is compromised, while the model decrypts transparently on read. `errors` is left as a plain JSON array — add `encrypted` casts (and switch the column to `TEXT`) for any additional fields on a model that extends the base.
-- **Graceful failure.** If persistence is enabled but the table has not been migrated (or the configured model is invalid), a warning is logged — `Audit Logs database table not found. Run the migration or disable the database integration in config/audit-log.php` — and the system log entry is still written.
-    - **Why:** A logging utility must never throw and abort the calling code because of its own misconfiguration. Because persistence is now on by default, a fresh install that has not yet run the migration degrades gracefully with an actionable message instead of an exception.
-- **Immutable records by default.** Persisted audit records are tamper-evident out of the box, governed by `config('audit-log.immutable')` with independent `update` and `destroy` controls (both default true). When a control is true the operation throws `BoldlyGrow\AuditLog\Exceptions\ImmutableRecordException`; when false it is allowed and recorded. A record may always be soft deleted (never blocked — only `forceDelete()` is gated by `destroy`), and every mutation is itself written as a new audit entry (`audit.log.soft_deleted`, `audit.log.restored`, `audit.log.updated`, `audit.log.destroyed`) linked to the mutated record and attributed to the acting user. Each mutation and the entry it records run in one database transaction, so a record is never changed without its log — if either fails, both roll back. An optional `withJustification('...')` stores a reason on the meta entry. Enforced by the new `BoldlyGrow\AuditLog\Traits\ImmutableRecords` trait on the base model.
-    - **Why:** Compliance regimes (SOC 2, ISO 27001, and similar) expect audit trails to be non-repudiable — you should not be able to silently alter or destroy history. Making immutability the default, recording every attempt to change a record, and requiring an explicit config change (from `true` to `false`) to relax it turns tampering into a deliberate, logged act rather than a quiet one.
+- **Audit events can be persisted to the database**
+    - Passing `database: true` writes the event to the Eloquent model in `config('audit-log.database.model')`, in addition to the system log.
+    - Persistence is gated by `config('audit-log.database.enabled')`, which defaults to `true`.
+    - **Why:** System logs are often rotated, sampled, or shipped to third parties with short retention. Compliance and forensic use cases need audit events kept indefinitely and queryable with SQL. This is the durable store that the 1.x README promised as an upcoming `audit_transactions` table.
+    - **How:** Publish and run the migration (`php artisan vendor:publish --tag=audit-log`, then `php artisan migrate`), and add `database: true` to the events that you want to store. The `audit-log` tag publishes the config and the migration, and `--tag=audit-log-migrations` publishes only the migration.
+- **A base model with polymorphic relationships is included**
+    - `BoldlyGrow\AuditLog\Models\AuditLog` has `morphTo` relationships (`actor`, `parent`, `record`, `related`, `subject`, `tenant`) that are resolved from the stored fully-qualified class names.
+    - It also has JSON and `datetime` casts, soft deletes, and a config-driven table name.
+    - **Why:** Persistence works with no setup, and applications still get a model to query and relate.
+    - **How:** To add your own relationships, casts, or scopes, create a model that extends the base model and set `config('audit-log.database.model')` to it. Bug fixes and new columns from the package still apply.
+- **Date range query scopes**
+    - The base model has `createdBefore`/`createdAfter`, `occurredBefore`/`occurredAfter`, and `deletedBefore`/`deletedAfter` scopes that accept any date that Carbon can parse. The `deleted*` scopes return only soft-deleted rows.
+    - **Why:** Time-bounded lookups, such as the history of a record last quarter, retention sweeps, and incident windows, are the most common audit queries, and scopes keep those queries readable and consistent.
+- **Configurable table name**
+    - `config('audit-log.database.table')` sets the table for both the migration and the model.
+    - **Why:** It avoids collisions with an existing `audit_logs` table, and lets applications follow their own naming conventions.
+- **UUIDv7 primary keys and configurable identifier formats**
+    - The primary key defaults to a timestamp-ordered UUIDv7, which the base model generates in its `creating` hook as a non-incrementing string key.
+    - The polymorphic reference columns (`actor_id`, `record_id`, `parent_id`, `related_id`, `subject_id`, `tenant_id`) default to `CHAR(36)`, sized for a UUID or ULID. External identifiers (`*_provider_id`, `*_reference_*`, `actor_session_id`, and the job IDs) stay `VARCHAR`.
+    - A comment block in the migration shows how to switch any ID column to `BIGINT`, `ULID`, or a custom format before you run `migrate`.
+    - A `SAFETY CHECK` guard at the top of `up()` throws until you delete it, so `php artisan migrate` can't run with ID formats that you haven't reviewed. The guard is skipped under the test runner.
+    - **Why:** UUIDv7 is the de facto identifier for logging and audit systems, since it's globally unique and timestamp-ordered, which keeps it index-friendly. Applications key their models differently, so the reference ID format is a deliberate one-time choice at install instead of a hard-coded assumption.
+- **Sensitive fields are encrypted at rest**
+    - The model casts `actor_email`, `actor_name`, `actor_username`, `attribute_value_old`, `attribute_value_new`, `parent_reference_value`, and `record_reference_value` as `encrypted`, and `metadata` as `encrypted:array`.
+    - These columns are `TEXT`, since the ciphertext exceeds `VARCHAR(255)`. Every other column has an explicit cast (`string`, `integer`, `datetime`, or `array`).
+    - **Why:** Audit records often capture PII and before and after values. Encrypting them reduces exposure if the database is compromised, and the model decrypts them transparently on read.
+    - **How:** `errors` is a plain JSON array. To encrypt more fields, add `encrypted` casts on a model that extends the base model, and change those columns to `TEXT`.
+- **Persistence fails gracefully**
+    - If persistence is enabled but the table hasn't been migrated, or the configured model is invalid, a warning is logged and the system log entry is still written. The warning is `Audit Logs database table not found. Run the migration or disable the database integration in config/audit-log.php`.
+    - **Why:** A logging utility must never abort the calling code because of its own misconfiguration. Persistence is on by default, so a new install that hasn't run the migration yet gets an actionable message instead of an exception.
+- **Records are immutable by default**
+    - `config('audit-log.immutable')` has separate `update` and `destroy` controls, which both default to `true`. When a control is `true`, the operation throws `BoldlyGrow\AuditLog\Exceptions\ImmutableRecordException`. When it's `false`, the operation is allowed and recorded.
+    - A record can always be soft deleted. Only `forceDelete()` is gated by `destroy`.
+    - Every mutation is written as a new audit entry (`audit.log.soft_deleted`, `audit.log.restored`, `audit.log.updated`, `audit.log.destroyed`) that is linked to the record and attributed to the acting user.
+    - Each mutation and its audit entry run in one database transaction, so a record is never changed without its log. If either fails, both roll back.
+    - `withJustification('...')` stores an optional reason on the audit entry. The rules are enforced by the `BoldlyGrow\AuditLog\Traits\ImmutableRecords` trait on the base model.
+    - **Why:** Compliance frameworks such as SOC 2 and ISO 27001 expect audit trails to be non-repudiable. Recording every change, and requiring an explicit config change to allow one, makes tampering a deliberate, logged act instead of a quiet one.
 
 #### Encrypted Field Search
 
-- **Search encrypted columns with query scopes.** The shipped model uses the `BoldlyGrow\AuditLog\Traits\ModelEncryptedLookup` trait, which makes the `encrypted` columns searchable. Because Laravel's encryption is non-deterministic, a plain `where('actor_email', ...)` can never match; these scopes decrypt in PHP, build a short-lived (two-minute), encrypted `id => value` index, and constrain the query to the matching keys. Every scope returns a query builder, so it chains with normal constraints, ordering, and pagination.
-    - **String columns** (`actor_email`, `actor_name`, `actor_username`, `attribute_value_old`, `attribute_value_new`, `parent_reference_value`, `record_reference_value`): `whereEncryptedStringExact`, `whereEncryptedStringPartial`, `whereEncryptedStringStartsWith`, `whereEncryptedStringEndsWith`.
-    - **Array column** (`metadata`): `whereEncryptedArraySearch`, `whereEncryptedArrayExact`, `whereEncryptedArrayPartial`, `whereEncryptedArrayStartsWith`, `whereEncryptedArrayEndsWith`, plus the static `encryptedArrayKeys()` helper.
-    - **Why:** Encrypting audit data at rest normally makes it unsearchable, which defeats the purpose of an audit store you need to investigate. These scopes restore lookup for the fields the package encrypts.
+- **Encrypted columns can be searched with query scopes**
+    - The `BoldlyGrow\AuditLog\Traits\ModelEncryptedLookup` trait on the model makes the `encrypted` columns searchable. Laravel's encryption is non-deterministic, so a plain `where('actor_email', ...)` never matches.
+    - The scopes decrypt in PHP, build a short-lived (two-minute) encrypted `id => value` index, and constrain the query to the matching keys. Each scope returns a query builder, so it chains with other constraints, ordering, and pagination.
+    - String columns (`actor_email`, `actor_name`, `actor_username`, `attribute_value_old`, `attribute_value_new`, `parent_reference_value`, `record_reference_value`) have `whereEncryptedStringExact`, `whereEncryptedStringPartial`, `whereEncryptedStringStartsWith`, and `whereEncryptedStringEndsWith`.
+    - The array column (`metadata`) has `whereEncryptedArraySearch`, `whereEncryptedArrayExact`, `whereEncryptedArrayPartial`, `whereEncryptedArrayStartsWith`, `whereEncryptedArrayEndsWith`, and the static `encryptedArrayKeys()` helper.
+    - **Why:** Encrypting audit data at rest normally makes it unsearchable, which defeats the purpose of an audit store that you need to investigate.
 
 Representative examples (see the [README](README.md#searching-encrypted-fields) for the full set, case-sensitivity rules, caching, and performance notes):
 
@@ -84,98 +140,110 @@ $keys = AuditLog::encryptedArrayKeys('metadata');
 
 #### Event Schema
 
-- **Model-to-type auto-calculation.** New `parent_model`, `record_model`, `tenant_model`, `related_model`, and `subject_model` parameters accept a fully-qualified class name (`Model::class`) and auto-calculate the paired snake_case `*_type` value (for example `App\Models\Okta\User` becomes `okta_user`) using the namespace at `config('audit-log.model.namespace')`.
-    - **Why:** Hand-writing `record_type: 'okta_user'` next to `record_id` is repetitive and drifts out of sync when models move. Passing the class directly is DRY, refactor-safe, and lets the `*_model` column drive Eloquent relationships. The legacy `*_type` string parameters still work unchanged, and an explicitly provided `*_type` overrides the value calculated from `*_model` when both are supplied — so you can point the `*_model` column at a class while still logging a custom `*_type` key. Every `*_type` column is indexed by the migration as a compound `(*_type, *_id)` index so the snake_case strings can be filtered efficiently (for API queries, exports, and SIEM lookups) without needing the fully-qualified class name, and each `(*_model, *_id)` pair is indexed too so the `morphTo` relationships and `whereMorphedTo()` resolve against an index.
-- **Related and subject relationship fields.** New `related_id`/`related_model` (a related model that is not a parent or child but should be referenced for logging) and `subject_id`/`subject_model` (the impacted human user, service account or other audited model based on your own business logic) parameters.
-    - **Why:** Many events involve more actors than just the authenticated user and a single record — for example "user A changed a setting that affects service B on behalf of C." `subject_model` is intentionally left generic so any application module's model may be referenced.
-- **Actor source.** A new `actor_source` field records the origin of the request: `system` (console/queue), `api` (API route or JSON request), or `web` (auto-detected), with `cli` and any custom values supplied explicitly.
-    - **Why:** The security posture of an event depends heavily on where it came from — a session-based web action, a token-based API call, or an unattended background job are meaningfully different. The allowed vocabulary lives in one place at `config('audit-log.actor.source.allowed')`, and any value passed to `create()` is validated against it.
+- **`*_model` parameters calculate the matching `*_type`**
+    - The new `parent_model`, `record_model`, `tenant_model`, `related_model`, and `subject_model` parameters accept a fully-qualified class name (`Model::class`). The snake_case `*_type` is calculated with the namespace in `config('audit-log.model.namespace')` (ex. `App\Models\Okta\User` becomes `okta_user`).
+    - The `*_type` string parameters still work, and an explicit `*_type` overrides the calculated value when both are passed.
+    - The migration indexes each `(*_type, *_id)` pair, so the snake_case types can be filtered for API queries, exports, and SIEM lookups without the class name. It also indexes each `(*_model, *_id)` pair, so `morphTo` relationships and `whereMorphedTo()` use an index.
+    - **Why:** Writing `record_type: 'okta_user'` next to `record_id` is repetitive, and it drifts when models move. Passing the class is refactor-safe, and the `*_model` column drives the Eloquent relationships.
+- **`related_*` and `subject_*` relationship fields**
+    - `related_id` and `related_model` reference a related model that isn't a parent or child. `subject_id` and `subject_model` reference the impacted user, service account, or other audited model, based on your own business logic.
+    - **Why:** Many events involve more than the authenticated user and one record (ex. user A changed a setting that affects service B on behalf of C). `subject_model` is generic, so any model in your application can be referenced.
+- **`actor_source` records where a request came from**
+    - It's detected as `system` (console or queue), `api` (an API route or JSON request), or `web`. `cli` and custom values can be passed explicitly.
+    - The allowed values are in `config('audit-log.actor.source.allowed')`, and a value passed to `create()` is validated against them.
+    - **Why:** The security posture of an event depends on where it came from. A session-based web action, a token-based API call, and an unattended background job are meaningfully different.
 
 #### Configurability
 
-- **Configurable actor attributes.** The user-model attribute(s) read for each actor field (`id`, `email`, `name`, `provider_id`, `username`) are now mapped in `config('audit-log.actor.attributes')`. Each mapping may be a single attribute or an ordered list of candidates, where the first non-null value wins.
-    - **Why:** Applications name their user columns differently (`work_email`, `display_name`, `okta_id`). Previously these were hardcoded, forcing a fork or wrapper. The ordered-candidate form also expresses the built-in `name → full_name` fallback declaratively instead of in code.
-- **Configurable proxy IP header.** `actor_ip_addr` now checks the headers listed in `config('audit-log.actor.ip_headers')` (for example `CF-Connecting-IP` or `X-Forwarded-For`) before falling back to `request()->ip()`.
-    - **Why:** Behind a CDN or reverse proxy, `request()->ip()` returns the proxy's address rather than the actor's. The trusted header list is application-specific, so it belongs in config.
-- **Custom fields without forking.** Keys whitelisted in `config('audit-log.database.custom_fields')` are flattened out of the `metadata` array into their own database columns (which you add with your own migration), while still remaining in the `metadata` JSON for the system log.
-    - **Why:** Applications routinely need to persist and index domain-specific fields (a tenant, organization, or workspace ID). This lets them do so — with real, indexable columns and model relationships — without modifying the package or adding first-class parameters upstream.
+- **Actor attributes are configurable**
+    - The user model attributes that each actor field reads (`id`, `email`, `name`, `provider_id`, `username`) are mapped in `config('audit-log.actor.attributes')`. A mapping can be one attribute or an ordered list of candidates, and the first non-null value is used.
+    - **Why:** Applications name their user columns differently (ex. `work_email`, `display_name`, `okta_id`), and these were hardcoded, which forced a fork or a wrapper. The list form also expresses the built-in `name` then `full_name` fallback in config instead of code.
+- **Proxy IP headers are configurable**
+    - `actor_ip_addr` checks the headers in `config('audit-log.actor.ip_headers')` (ex. `CF-Connecting-IP` or `X-Forwarded-For`) before it falls back to `request()->ip()`.
+    - **Why:** Behind a CDN or reverse proxy, `request()->ip()` returns the proxy's address instead of the actor's, and the trusted headers are specific to each application.
+- **Custom fields without forking**
+    - Keys listed in `config('audit-log.database.custom_fields')` are copied from the `metadata` array into their own database columns, which you add with your own migration. They also stay in the `metadata` JSON for the system log.
+    - **Why:** Applications often need to store and index their own fields, such as a tenant, organization, or workspace ID, with real columns and relationships, without changing the package or waiting for new parameters.
 
 #### Tooling
 
-- **Pest test suite.** A Testbench-backed Pest suite covers the logger, actor resolution, output formatting, database persistence, the base model, immutability enforcement, and encrypted-field search. Run it with `composer test`.
-    - **Why:** The 2.0 surface area is large enough to warrant automated regression coverage, and a public test suite lowers the barrier for contributors.
-- **Static analysis with Larastan (PHPStan) at level 9.** The suite is analyzed at the level configured in `phpstan.neon`; run `vendor/bin/phpstan analyse`.
-    - **Why:** Level 9 catches type and null-safety mistakes before they ship, which matters most for a utility that other packages and applications build on.
+- **Pest test suite**
+    - A Testbench-backed Pest suite covers the logger, actor resolution, output formatting, database persistence, the base model, immutability, and encrypted field search. Run it with `composer test`.
+    - **Why:** The 2.0 surface area is large enough to need automated regression tests, and a public test suite makes it easier to contribute.
+- **Static analysis with Larastan (PHPStan)**
+    - `phpstan.neon` is configured for level 9. Run it with `vendor/bin/phpstan analyse`.
+    - **Why:** Static analysis catches type and null safety mistakes before they ship, which matters most for a utility that other packages and applications build on.
 
 #### Documentation
 
-- **Rewritten README** documenting the full 2.0 parameter set, database persistence, custom fields, and the configurable actor/model/source options.
-- **`*_type` string-search guidance.** The README now explains when to query the human-friendly snake_case `*_type` columns (`okta_user`) with a plain `where()` — the better path for API filters, CSV/JSON exports, and SIEM ingestion — versus the FQCN `*_model` columns. Every `*_type` column is indexed by the shipped migration, so these string filters are index-backed out of the box.
-- **New `examples/` directory** with copyable, genericized reference implementations of a read-only `list` + `describe` audit log API, in two flavors: `api-endpoints-no-dependency` (pure Laravel/Eloquent) and `api-endpoints-spatie-data-query` (`spatie/laravel-query-builder` + `spatie/laravel-data`). The files are reference stubs (not autoloaded) that adopters copy into their app.
-    - **Why:** Standing up a queryable audit log API is a common next step after enabling persistence; shipping a proven starting point saves that work without forcing any particular query/serialization package on users.
-- **New `COMPLIANCE.md`** mapping the package's capabilities to SOC 1/2, ISO 27001, NIST SP 800-53/63/171, CISA, and CIS controls, with an explicit shared-responsibility model.
-    - **Why:** Audit logging is frequently adopted to satisfy compliance obligations; documenting what the package does and does not provide helps teams scope the remaining work honestly.
+- **The README is rewritten** for the full 2.0 parameter set, database persistence, custom fields, and the configurable actor, model, and source options.
+- **Guidance for searching `*_type` strings**
+    - The README explains when to query the snake_case `*_type` columns (ex. `okta_user`) with a plain `where()`, which is better for API filters, CSV and JSON exports, and SIEM ingestion, and when to use the fully-qualified `*_model` columns. The migration indexes every `*_type` column.
+- **Example audit log API endpoints in `examples/`**
+    - Copyable reference implementations of a read-only `list` and `describe` API come in two versions: `api-endpoints-no-dependency` (Laravel and Eloquent only) and `api-endpoints-spatie-data-query` (`spatie/laravel-query-builder` and `spatie/laravel-data`). The files are stubs that aren't autoloaded.
+    - **Why:** A queryable audit log API is a common next step after enabling persistence, and this provides a starting point without requiring a particular query or serialization package.
+- **`COMPLIANCE.md` maps the package to compliance controls**
+    - It covers SOC 1 and SOC 2, ISO 27001, NIST SP 800-53, 800-63, and 800-171, CISA, and CIS controls, with an explicit shared responsibility model.
+    - **Why:** Audit logging is often adopted to meet compliance obligations, and documenting what the package does and doesn't provide helps teams scope the remaining work honestly.
 
 ### Changed
 
-- **Minimum framework requirement**
-    - The minimum supported framework was raised from Laravel 8 to **Laravel 11**, and the minimum PHP version from 8.0 to **8.2**. Laravel 11, 12, and 13 are supported.
-        - **Why:** Two reasons. First, the package was already *effectively* Laravel 11+ and the old `^8.0` constraint advertised support it did not actually have: the shipped Eloquent model defines casts via the `protected function casts(): array` method, which Eloquent only honors on Laravel 11 and later. On Laravel 8–10 that method is silently ignored, so `errors`/`metadata` would not cast to arrays and `occurred_at`/`job_timestamp` would not become `Carbon` instances. Raising the floor makes the advertised support match reality. Second, as of this release Laravel 8, 9, and 10 are all past their security-fix end-of-life; continuing to support them adds testing burden for versions that should not run in production — and running an audit-logging (compliance) feature on an unsupported framework is itself a risk. A major release is the natural place to raise the minimum.
-        - **How:** Upgrade your application to Laravel 11 or newer (PHP 8.2+) before adopting `boldlygrow/audit-log:^2.0`. Applications still on Laravel 8–10 should remain on `provisionesta/audit:^1.3`.
-- **Package Architecture**
-    - The Composer package has been renamed from `provisionesta/audit` to `boldlygrow/audit-log`.
-        - **Why:** The project is consolidating under the maintainer's `BoldlyGrow` organization alongside the related Okta API client and actions packages.
+- **Renamed from `provisionesta/audit` to `boldlygrow/audit-log`**
     - The PHP namespace changed from `Provisionesta\Audit` to `BoldlyGrow\AuditLog`.
-    - The service provider was renamed from `Provisionesta\Audit\AuditServiceProvider` to `BoldlyGrow\AuditLog\AuditLogServiceProvider` and is registered automatically via Laravel package discovery.
-    - The `provisionesta/audit` package name is retained as a `replace` alias for a smoother upgrade.
-- **Class Rename**
-    - The `Log` class was renamed to `AuditLog`.
-        - **Why:** The old name shadowed Laravel's `Illuminate\Support\Facades\Log`, forcing an internal alias and creating ambiguity for consumers reading `Log::create()` alongside `Log::info()`.
-        - **How:** Update your imports from `use BoldlyGrow\AuditLog\Log;` to `use BoldlyGrow\AuditLog\AuditLog;` and calls from `Log::create(...)` to `AuditLog::create(...)`.
-    - The original `Log` class is retained as a deprecated subclass — see **Deprecated** below.
-- **Configuration**
-    - The published configuration file was renamed from `config/audit.php` to `config/audit-log.php`.
-        - **Why:** The filename now matches the `boldlygrow/audit-log` package name and avoids collisions with other packages or application config that may use the generic `audit` name.
-        - **How:** Rename your published `config/audit.php` to `config/audit-log.php` and update any `config('audit.*')` references to `config('audit-log.*')` (for example `config('audit.dump.default')` becomes `config('audit-log.dump.default')`).
-    - Configuration toggles are now plain booleans set directly in `config/audit-log.php` rather than `env()` reads — see **Removed** below for the `AUDIT_ACTOR_ENABLED` environment variable this replaces.
-- **Dependencies**
-    - Added `illuminate/database` to `require`.
-        - **Why:** Database persistence needs Eloquent (`illuminate/database`). It is a lightweight, framework-supporting module consistent with the package's existing lean `illuminate/*` footprint — the full framework is still not pulled in.
-- **Log message prefix**
-    - The system log message is now prefixed with the class name only (`ApiClient Success`) instead of the class and method (`ApiClient::post Success`).
-        - **Why:** The fully-qualified `method` is still recorded in the log context, so the `::method` suffix in the message was redundant and made messages harder to scan.
-- **Date formatting**
-    - Date context values (such as `occurred_at`) are now formatted as ISO 8601 Zulu (`...Z`) instead of with a numeric UTC offset (`+00:00`).
-        - **Why:** The `Z` suffix is unambiguous, sorts consistently, and is the format most log aggregation platforms expect.
+    - The service provider was renamed from `Provisionesta\Audit\AuditServiceProvider` to `BoldlyGrow\AuditLog\AuditLogServiceProvider`, and it's registered with Laravel package discovery.
+    - `provisionesta/audit` is kept as a `replace` alias for a smoother upgrade.
+    - **Why:** The project is consolidating under the maintainer's `BoldlyGrow` organization, alongside the related Okta API client and actions packages.
+- **The `Log` class is renamed to `AuditLog`**
+    - The original `Log` class is kept as a deprecated subclass (see **Deprecated**).
+    - **Why:** The old name shadowed Laravel's `Illuminate\Support\Facades\Log`, which forced an internal alias and made `Log::create()` ambiguous next to `Log::info()`.
+    - **How:** Change your imports from `use BoldlyGrow\AuditLog\Log;` to `use BoldlyGrow\AuditLog\AuditLog;`, and your calls from `Log::create(...)` to `AuditLog::create(...)`.
+- **The config file is renamed to `config/audit-log.php`**
+    - It was `config/audit.php`.
+    - **Why:** The file name matches the package name, and it doesn't collide with other packages or application config that use the generic `audit` name.
+    - **How:** Rename your published `config/audit.php` to `config/audit-log.php`, and change `config('audit.*')` references to `config('audit-log.*')` (ex. `config('audit.dump.default')` becomes `config('audit-log.dump.default')`).
+- **`illuminate/database` is required**
+    - **Why:** Database persistence uses Eloquent. It's a lightweight component like the package's other `illuminate/*` dependencies, and the full framework still isn't required.
+- **Log messages are prefixed with the class name only**
+    - The prefix is `ApiClient Success` instead of `ApiClient::post Success`.
+    - **Why:** The fully-qualified `method` is still in the log context, so the method name in the message was redundant and made messages harder to scan.
+- **Dates in the log context use ISO 8601 Zulu time**
+    - Date values such as `occurred_at` end with `Z` instead of a `+00:00` offset.
+    - **Why:** The `Z` suffix is unambiguous, sorts consistently, and is the format that most log aggregation platforms expect.
 
 ### Deprecated
 
-- **`Log` class**
-    - The original `Log` class is retained as a deprecated subclass of `AuditLog`, so existing `Log::create(...)` calls continue to work unchanged. It is marked `@deprecated` and will be removed in a future major version.
-- **`transaction` parameter**
-    - The `transaction` boolean is now a deprecated alias for the new `database` parameter; either flag triggers database persistence.
-        - **Why:** The 1.x `transaction` flag referred to a database store that never shipped. `database` names the behavior accurately, and keeping `transaction` working avoids breaking any call sites that already set it.
+- **The `Log` class**
+    - It's a deprecated subclass of `AuditLog`, so existing `Log::create(...)` calls keep working. It's marked `@deprecated` and will be removed in a future major version.
+- **The `transaction` parameter**
+    - It's a deprecated alias for the new `database` parameter, and either one turns on database persistence.
+    - **Why:** The 1.x `transaction` flag referred to a database store that never shipped. `database` names the behavior accurately, and keeping `transaction` avoids breaking call sites that already set it.
 
 ### Removed
 
-- **`AUDIT_ACTOR_ENABLED` environment variable**
-    - Configuration toggles are plain booleans set directly in `config/audit-log.php` rather than `env()` reads. The 1.x `AUDIT_ACTOR_ENABLED` environment variable has been removed in favor of the `actor.enabled` config value.
-        - **Why:** These are per-application "set it and forget it" switches; keeping them in the config file (which is committed and cache-friendly) is simpler than threading them through environment variables.
+- **Laravel v8, v9, and v10, and PHP v8.0 and v8.1, are no longer supported**
+    - The minimum framework was raised from Laravel 8 to Laravel 11, and the minimum PHP version from 8.0 to 8.2.
+    - The model defines its casts with the `casts(): array` method, which Eloquent only honors on Laravel 11 and later. On Laravel 8–10 the method is ignored, so `errors` and `metadata` didn't cast to arrays, and `occurred_at` and `job_timestamp` didn't become `Carbon` instances.
+    - **Why:** The old `^8.0` constraint claimed support that the package didn't have. Laravel 8, 9, and 10 were also past their security support, and running an audit logging feature on an unsupported framework is a compliance risk in itself.
+    - **How:** Upgrade your application to Laravel 11 or newer and PHP 8.2 or newer before you adopt `boldlygrow/audit-log:^2.0`. Applications on Laravel 8–10 should stay on `provisionesta/audit:^1.3`.
+- **The `AUDIT_ACTOR_ENABLED` environment variable**
+    - Config toggles are booleans in `config/audit-log.php` instead of `env()` reads, so the `actor.enabled` config value replaces this variable.
+    - **Why:** These are per-application switches that are set once, and keeping them in the committed, cache-friendly config file is simpler than threading them through environment variables.
+    - **How:** If you set `AUDIT_ACTOR_ENABLED=false`, set `actor.enabled` to `false` in your published `config/audit-log.php`.
 
 ### Fixed
 
-- Fixed a bug where the `dump_config` schema lookup still referenced the pre-2.0 `config('audit.dump.*')` key. It now correctly reads `config('audit-log.dump.*')`.
-    - **Why:** The 1.x → 2.0 config rename missed this internal lookup, so `dump_config` silently resolved to `null` and returned the unfiltered schema.
-- Fixed a bug where a `dump_config` schema did not filter the response to its configured `keys` unless a `dump_keys` argument was also passed. The configured keys are now honored on their own, matching the documented behavior.
-    - **Why:** The filter was gated on the `dump_keys` argument rather than the resolved schema, so a named config schema never actually narrowed the response.
+- **`dump_config` reads the `audit-log.dump.*` config**
+    - It still referenced the pre-2.0 `config('audit.dump.*')` key. The config rename missed this lookup, so `dump_config` resolved to `null` and returned the unfiltered schema.
+- **A `dump_config` schema filters the response to its `keys`**
+    - Its keys were only applied when a `dump_keys` argument was also passed, so a named schema never narrowed the response. The configured keys are now applied on their own, as documented.
 
 ### Upgrade Steps
 
-1. Update `composer.json` to require `boldlygrow/audit-log:^2.0` and run `composer update`.
-2. Perform a find and replace across your code base from `Provisionesta\Audit` to `BoldlyGrow\AuditLog`.
-3. Rename references from the `Log` class to `AuditLog` (`use ...\AuditLog;` and `AuditLog::create(...)`). This is optional in 2.0 because the deprecated `Log` alias still works, but is recommended before the alias is removed in a future major version.
-4. Rename your published `config/audit.php` to `config/audit-log.php` (or republish with `php artisan vendor:publish --tag=audit-log`) and update any `config('audit.*')` references to `config('audit-log.*')`.
-5. **(Optional)** To adopt database persistence, publish and run the migration (`php artisan vendor:publish --tag=audit-log` then `php artisan migrate`) and add `database: true` to the events you want stored. Persistence is enabled by default; set `config('audit-log.database.enabled')` to `false` if your application does not use a database. If you previously used `transaction: true`, it continues to work but `database: true` is preferred.
+1. **Update the package.** Require `boldlygrow/audit-log:^2.0` in `composer.json`, and run `composer update`.
+2. **Update the namespace.** Find and replace `Provisionesta\Audit` with `BoldlyGrow\AuditLog` across your code base.
+3. **Rename the `Log` class.** Change `Log` references to `AuditLog` (`use ...\AuditLog;` and `AuditLog::create(...)`). This is optional in 2.0, since the deprecated `Log` alias still works, but it's recommended before the alias is removed in a future major version.
+4. **Rename the config file.** Rename your published `config/audit.php` to `config/audit-log.php` (or republish it with `php artisan vendor:publish --tag=audit-log`), and change `config('audit.*')` references to `config('audit-log.*')`.
+5. **(Optional) Turn on database persistence.** Publish and run the migration (`php artisan vendor:publish --tag=audit-log`, then `php artisan migrate`), and add `database: true` to the events that you want to store. Persistence is enabled by default, so set `config('audit-log.database.enabled')` to `false` if your application doesn't use a database. `transaction: true` still works, but `database: true` is preferred.
 6. This is not an exhaustive list. Review the `README.md` for the latest syntax and usage guidelines.
 
 *Releases prior to 2.0 were developed on GitLab as `provisionesta/audit`. The `!N` tokens in the entries below are GitLab merge request references, retained for historical accuracy.*
@@ -184,60 +252,66 @@ $keys = AuditLog::encryptedArrayKeys('metadata');
 
 ### Added
 
-- Update dependencies to support Laravel 12
+- Add Laravel v12.x support
 
 ## [1.2.2] - 2024-11-22
 
 ### Fixed
 
-- !16 Fix: Add support for disabling actor auto populated data with config value
+- **The actor fields can be turned off with a config value** (!16)
+    - When `config('audit.actor.enabled')` (`AUDIT_ACTOR_ENABLED`) is `false`, the `actor_*` fields aren't filled from the authenticated user and request. It defaults to `true`.
 
 ## [1.2.1] - 2024-11-20
 
-### Fixed
+### Removed
 
-- !14 Fix: Remove `server_hostname` from log context due to lack of usefulness and unavailability on some systems
+- **`server_hostname` is removed from the log context** (!14)
+    - **Why:** It wasn't useful, and it isn't available on some systems.
 
 ## [1.2.0] - 2024-11-05
 
 ### Added
 
-- !11 Feature: Add `actor_*` fields
-    - !12 Fix: (Development Typo) Typos with actor field implementation.
-- !12 Feature: Add `memory_current`, `memory_peak`, `server_hostname` to log context.
+- **`actor_*` fields** (!11, !12)
+    - `actor_email`, `actor_id`, `actor_ip_addr`, `actor_name`, `actor_provider_id`, `actor_session_id`, `actor_type`, and `actor_username` are filled from the authenticated user and the request. !12 fixed typos in the implementation.
+- **`memory_current`, `memory_peak`, and `server_hostname` in the log context** (!12)
 
 ### Fixed
 
-- !10 Fix: (Validation Rules) Change UUID validation rules for `*_id` to allow any string
+- **`*_id` values can be any string** (!10)
+    - The validation rules no longer require a UUID.
 
 ## [1.1.0] - 2024-03-02
 
 ### Added
 
-- !4 Feature: Add background job metadata attributes
-- !5 Feature: Add returned array with custom schema
-- !7 Feature: (Docs) Add existing project testing instructions to `CONTRIBUTING`
+- **Background job parameters** (!4)
+    - `job_batch`, `job_id`, `job_platform`, `job_pipeline_id`, `job_timestamp`, and `job_transaction_id`.
+- **`Log::create()` returns an array with a custom schema** (!5)
+    - The `dump_config`, `dump_date`, `dump_keys`, and `dump_strings` parameters set which keys and static strings the array includes.
+- Add instructions to `CONTRIBUTING.md` for testing the package in an existing project (!7)
 
 ### Fixed
 
-- !6 Fix: (Developer Experience) Add `(optional)` comment to `Log::create()` docblock optional parameters
-- !8 Fix: (Validation Rules) Remove `*_id` and `*_type` validation `required_with` rule
+- Add `(optional)` to the `Log::create()` docblock for each optional parameter (!6)
+- **`*_id` and `*_type` no longer have a `required_with` validation rule** (!8)
 
 ## [1.0.0] - 2023-12-29
 
 ### Overview
 
-This initial release adds the `Log::create` method and defines the standardized attributes.
+This initial release adds the `Log::create()` method and defines the standardized attributes.
 
 ### Added
 
 - Add Laravel v11.x support
 - Add PHP v8.3 support
-- Add Log attributes
-- Add attribute value validation
+- Add the log attributes
+- Add validation for the attribute values
 - Add `.gitlab-ci.yml` for CI/CD testing
 - Add `README.md` with example usage
 
+[3.0.0]: https://github.com/boldlygrow/audit-log/compare/2.0.1...3.0.0
 [2.0.1]: https://github.com/boldlygrow/audit-log/compare/2.0...2.0.1
 [2.0.0]: https://github.com/boldlygrow/audit-log/compare/1.3...2.0
 [1.3.0]: https://github.com/boldlygrow/audit-log/compare/1.2.2...1.3
