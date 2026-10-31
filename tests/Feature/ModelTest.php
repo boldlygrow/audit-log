@@ -136,6 +136,42 @@ describe('soft deletes', function () {
     });
 });
 
+describe('date range scopes', function () {
+    it('filters records by their created_at date', function () {
+        Carbon::setTestNow('2024-03-01 12:00:00');
+        AuditLog::create(...auditArgs(['record_id' => 'early', 'database' => true]));
+        Carbon::setTestNow('2024-03-10 12:00:00');
+        AuditLog::create(...auditArgs(['record_id' => 'late', 'database' => true]));
+        Carbon::setTestNow();
+
+        expect(AuditLogModel::createdBefore('2024-03-05')->pluck('record_id')->all())->toBe(['early'])
+            ->and(AuditLogModel::createdAfter('2024-03-05')->pluck('record_id')->all())->toBe(['late']);
+    });
+
+    it('filters records by their occurred_at date', function () {
+        AuditLog::create(...auditArgs(['record_id' => 'early', 'occurred_at' => '2024-03-01T12:00:00+00:00', 'database' => true]));
+        AuditLog::create(...auditArgs(['record_id' => 'late', 'occurred_at' => '2024-03-10T12:00:00+00:00', 'database' => true]));
+
+        expect(AuditLogModel::occurredBefore('2024-03-05')->pluck('record_id')->all())->toBe(['early'])
+            ->and(AuditLogModel::occurredAfter('2024-03-05')->pluck('record_id')->all())->toBe(['late']);
+    });
+
+    it('filters only soft deleted records by their deleted_at date', function () {
+        Carbon::setTestNow('2024-03-01 12:00:00');
+        AuditLog::create(...auditArgs(['record_id' => 'early', 'database' => true]));
+        AuditLog::create(...auditArgs(['record_id' => 'late', 'database' => true]));
+        AuditLog::create(...auditArgs(['record_id' => 'kept', 'database' => true]));
+        AuditLogModel::where('record_id', 'early')->firstOrFail()->delete();
+        Carbon::setTestNow('2024-03-10 12:00:00');
+        AuditLogModel::where('record_id', 'late')->firstOrFail()->delete();
+        Carbon::setTestNow();
+
+        // The records that were not soft deleted, including the audit entries recorded for each delete, are excluded.
+        expect(AuditLogModel::deletedBefore('2024-03-05')->pluck('record_id')->all())->toBe(['early'])
+            ->and(AuditLogModel::deletedAfter('2024-03-05')->pluck('record_id')->all())->toBe(['late']);
+    });
+});
+
 describe('persisted columns', function () {
     it('persists the standardized schema columns', function () {
         AuditLog::create(...auditArgs([

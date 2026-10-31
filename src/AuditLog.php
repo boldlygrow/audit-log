@@ -12,6 +12,7 @@ namespace BoldlyGrow\AuditLog;
 use BoldlyGrow\AuditLog\Exceptions\ValidationException;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log as LaravelLog;
@@ -70,11 +71,11 @@ class AuditLog
      *                                                    `config('audit-log.database.enabled')` to be true. (default: false)
      * @param  ?string           $dump_config             (optional) The array key in config/audit.php that contains the `date`,
      *                                                    `keys`, and `strings` schema configuration.
-     * @param                    $dump_date               (optional) The PHP datetime format string for timestamps in array.
-     *                                                   (default: 'c')
-     * @param  array             $dump_keys               (optional) An filtered list of array of keys from AuditLog::create()
+     * @param  string            $dump_date               (optional) The PHP datetime format string for timestamps in array.
+     *                                                    (default: 'c')
+     * @param  array<string>     $dump_keys               (optional) An filtered list of array of keys from AuditLog::create()
      *                                                    method that returned in the response array.
-     * @param  array             $dump_strings            (optional) An array of key value pairs of static strings that should be
+     * @param  array<mixed>      $dump_strings            (optional) An array of key value pairs of static strings that should be
      *                                                    included in the in the response array (instead of having to
      *                                                    add them yourself with collection transformation later).
      * @param  ?CarbonInterface  $duration_ms             (optional) Carbon instance (timestamp) used for long running batch jobs
@@ -83,7 +84,7 @@ class AuditLog
      *                                                    `CarbonImmutable` for applications that use immutable dates.
      * @param  ?int              $duration_ms_per_record  (optional) Number of milliseconds divided by count of records. This is
      *                                                    not auto-calculated to allow flexibility for custom Carbon timestamps
-     * @param  array             $errors                  (optional) Flat array of error message(s) that will be encoded as JSON
+     * @param  array<mixed>      $errors                  (optional) Flat array of error message(s) that will be encoded as JSON
      * @param  ?CarbonInterface  $event_ms                (optional) Carbon instance (timestamp) that was initialized at the
      *                                                    start of the action and provides a point-in-time duration for this
      *                                                    specific action within a longer running job. Any `CarbonInterface`
@@ -107,7 +108,7 @@ class AuditLog
      * @param  bool              $log                     (optional) Whether to create a system log entry for this event.
      *                                                    This is used in conjunction `transaction` or only returning a
      *                                                    parsed array. (default: true)
-     * @param  array             $metadata                (optional) An array of custom metadata that should be included in
+     * @param  array<mixed>      $metadata                (optional) An array of custom metadata that should be included in
      *                                                    the log
      * @param  ?string           $occurred_at             (optional) A datetime that will be formatted with Carbon for when the
      *                                                    event occurred at based on a created_at or updated_at API timestamp
@@ -171,6 +172,8 @@ class AuditLog
      *                                                    Ex. \App\Models\Okta\Organization::class
      * @param  bool              $transaction             (optional) Whether to create a Transaction database row for this event
      *                                                    (default: false)
+     *
+     * @return array<string, mixed> The formatted response array (see the README's Response Schema)
      */
     public static function create(
         string $event_type,
@@ -298,15 +301,17 @@ class AuditLog
             ],
         ];
 
-        $actor_ip_addr = self::resolveActorIpAddress();
+        // An actor_ip_addr argument overrides the IP address that is resolved from the request.
+        $actor_ip_addr ??= self::resolveActorIpAddress();
 
         $actor_source_default = config('audit-log.actor.source.enabled')
             ? self::calculateActorSource()
             : null;
 
         if (config('audit-log.actor.enabled')) {
-            if (Auth::check()) {
-                $user = Auth::user();
+            $user = Auth::user();
+
+            if ($user !== null) {
                 $actor = [
                     'actor_email' => self::resolveActorAttribute($user, 'email'),
                     'actor_id' => self::resolveActorAttribute($user, 'id'),
@@ -350,31 +355,31 @@ class AuditLog
 
         $log_context = collect(get_defined_vars())
             ->only(collect($log_context_keys)->flatten(1))
-            ->transform(function ($item, $key) use ($actor, $log_context_keys) {
+            // Each value is a method argument, so each check matches the type of its parameter.
+            ->transform(function (mixed $item, string $key) use ($actor, $log_context_keys): mixed {
                 if ($item === null && str_starts_with($key, 'actor_')) {
                     return $actor[$key];
                 }
-                if ($item === null) {
-                    return null;
-                }
                 if (in_array($key, $log_context_keys['string'])) {
-                    return (string) $item;
+                    return is_string($item) ? $item : null;
                 }
                 if (in_array($key, $log_context_keys['model_type'])) {
-                    return self::calculateTypeFromModel((string) $item);
+                    return is_string($item) ? self::calculateTypeFromModel($item) : null;
                 }
                 if (in_array($key, $log_context_keys['int'])) {
-                    return (int) $item;
+                    return is_int($item) ? $item : null;
                 }
                 if (in_array($key, $log_context_keys['array'])) {
-                    return (array) $item;
+                    return is_array($item) ? $item : null;
                 }
                 if (in_array($key, $log_context_keys['date'])) {
-                    return Carbon::parse($item)->toIso8601ZuluString();
+                    return is_string($item) ? Carbon::parse($item)->toIso8601ZuluString() : null;
                 }
                 if (in_array($key, $log_context_keys['ms'])) {
-                    return (int) Carbon::parse($item)->diffInMilliseconds();
+                    return $item instanceof CarbonInterface ? (int) Carbon::parse($item)->diffInMilliseconds() : null;
                 }
+
+                return null;
             })->toArray();
 
         // Fold each computed `*_model` value into its `*_type` key. An explicitly
@@ -509,12 +514,12 @@ class AuditLog
     /**
      * Validate the argument input
      *
-     * @param  array  $arguments_array  The array of all arguments and passed values in the handle() method
-     *                                  Ex. get_defined_vars()
+     * @param  array<string, mixed>  $arguments_array  The array of all arguments and passed values in the create() method
+     *                                                 Ex. get_defined_vars()
      *
      * @throws ValidationException
      */
-    private static function validate($arguments_array)
+    private static function validate(array $arguments_array): void
     {
         $validator = Validator::make($arguments_array, [
             'actor_email' => 'nullable|string',
@@ -572,6 +577,19 @@ class AuditLog
             'dump_strings' => 'array',
         ]);
 
+        // A dump_config name must be a schema in config/audit-log.php, since the response array is built from it. This is
+        // checked here so that the event is not logged or persisted before the response array fails.
+        $validator->after(function (ValidatorContract $validator) use ($arguments_array): void {
+            $dump_config = $arguments_array['dump_config'] ?? null;
+
+            if (is_string($dump_config) && ! is_array(config('audit-log.dump.' . $dump_config))) {
+                $validator->errors()->add(
+                    'dump_config',
+                    'The `audit-log.dump.' . $dump_config . '` dump config is not defined in config/audit-log.php.'
+                );
+            }
+        });
+
         if ($validator->fails()) {
             LaravelLog::log(
                 level: 'critical',
@@ -590,16 +608,18 @@ class AuditLog
     /**
      * Format the response array that can be dumped into a variable
      *
-     * @param  ?string  $dump_config   The array key in config/audit.php that contains the `date`, `keys`,
-     *                                 and `strings` schema configuration.
-     * @param           $dump_date     The PHP datetime format string for timestamps returned in array.
-     * @param  array    $dump_keys     An filtered list of array of keys from the AuditLog::create() method
-     *                                 that returned in the response array.
-     * @param  array    $dump_strings  An array of key value pairs of static strings that should be
-     *                                 included in the in the response array (instead of having to
-     *                                 add them yourself with collection transformation later).
-     * @param  array    $log_metadata  An key/value array with `event_type`, `level`, `message`, `method`
-     * @param  array    $log_context   The array of log context that was used for log and transaction
+     * @param  ?string                $dump_config   The array key in config/audit.php that contains the `date`, `keys`,
+     *                                               and `strings` schema configuration.
+     * @param  string                 $dump_date     The PHP datetime format string for timestamps returned in array.
+     * @param  array<string>          $dump_keys     An filtered list of array of keys from the AuditLog::create() method
+     *                                               that returned in the response array.
+     * @param  array<mixed>           $dump_strings  An array of key value pairs of static strings that should be
+     *                                               included in the in the response array (instead of having to
+     *                                               add them yourself with collection transformation later).
+     * @param  array<string, string>  $log_metadata  An key/value array with `event_type`, `level`, `message`, `method`
+     * @param  array<string, mixed>   $log_context   The array of log context that was used for log and transaction
+     *
+     * @return array<string, mixed>
      */
     private static function formatDump(
         ?string $dump_config = null,
@@ -608,7 +628,7 @@ class AuditLog
         array $dump_keys = [],
         array $log_metadata = [],
         array $log_context = [],
-    ) {
+    ): array {
         if (! $dump_config) {
             $dump = [
                 'date' => $dump_date,

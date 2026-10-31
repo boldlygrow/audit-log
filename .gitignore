@@ -1,7 +1,8 @@
+/.pest
 /node_modules
 /packages
+/tmp
 /vendor
-composer.lock
 .phpunit.cache
 .phpunit.result.cache
-/.pest
+composer.lock

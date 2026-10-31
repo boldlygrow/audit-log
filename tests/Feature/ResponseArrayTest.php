@@ -1,6 +1,8 @@
 <?php
 
 use BoldlyGrow\AuditLog\AuditLog;
+use BoldlyGrow\AuditLog\Exceptions\ValidationException;
+use BoldlyGrow\AuditLog\Models\AuditLog as AuditLogModel;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 
@@ -20,6 +22,14 @@ describe('response array shaping', function () {
         expect(array_keys($result))->toEqualCanonicalizing(['datetime', 'event_type', 'record_id', 'source'])
             ->and($result['source'])->toBe('okta')
             ->and($result['record_id'])->toBe('abc');
+    });
+
+    it('throws a ValidationException for a dump_config that is not configured', function () {
+        expect(fn () => AuditLog::create(...auditArgs(['dump_config' => 'missing', 'database' => true])))
+            ->toThrow(ValidationException::class, 'The `audit-log.dump.missing` dump config is not defined in config/audit-log.php.');
+
+        // The validation fails before the event is logged or persisted.
+        expect(AuditLogModel::count())->toBe(0);
     });
 
     it('appends dump_strings to the response', function () {
