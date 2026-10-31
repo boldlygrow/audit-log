@@ -15,9 +15,13 @@ The test suite now runs on PHP 8.2 through 8.5 with Laravel 12 and 13.
 ### Added
 
 - **PHPStan types for `AuditLog::create()` and the model's date range scopes**
-    - `create()` is documented as returning `array<string, mixed>`, and its `dump_keys`, `dump_strings`, `errors`, and `metadata` parameters document their value types.
+    - `create()` is documented as returning `array<string, mixed>`, and its `dump_keys` parameter as `array<string>`.
     - The `createdBefore`, `createdAfter`, `occurredBefore`, `occurredAfter`, `deletedBefore`, and `deletedAfter` scopes are documented with `Builder<self>`.
-    - **Why:** PHPStan and Larastan can check the values that your application passes to `create()` and reads from its response.
+    - **Why:** PHPStan and Larastan can check the `dump_keys` that your application passes to `create()`, and know that its response array has string keys.
+
+### Changed
+
+- The Composer dist archive no longer includes `tests/`, `bin/`, `CONTRIBUTING.md`, or the PHPStan, Pint, and PHPUnit config files.
 
 ### Removed
 
